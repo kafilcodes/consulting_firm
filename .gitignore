@@ -29,6 +29,8 @@ yarn-error.log*
 .env
 .env.development
 .env.production
+.env.backup
+.env.*
 
 # vercel
 .vercel
@@ -42,6 +44,12 @@ next-env.d.ts
 firebase-debug.log
 firestore-debug.log
 ui-debug.log
+firebase-config.js
+firebaseConfig.js
+**/firebase-config.*
+**/firebaseConfig.*
+.firebaserc
+firebase.json
 
 # IDE
 .idea/
@@ -50,3 +58,8 @@ ui-debug.log
 # misc
 *.log
 .DS_Store
+.env.backup
+*.key
+*.pem
+*.cert
+*.secret
