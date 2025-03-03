@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="public/logo/logo.png" alt="SKS Consulting Logo" width="200">
+  <img src="logo.png" alt="SKS Consulting Logo" width="200">
   <h1>SKS Consulting</h1>
   <p>Professional Business Consulting Services Platform</p>
 
