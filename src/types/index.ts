@@ -84,9 +84,11 @@ export interface User {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
-  role: 'admin' | 'client';
-  createdAt: Date;
-  lastSignInTime: Date;
+  role: UserRole;
+  createdAt: string | Date;
+  lastSignInTime: string | Date;
+  updatedAt?: string | Date;
+  lastLoginAt?: string | Date;
 }
 
 export interface UserData extends Omit<User, 'createdAt' | 'lastSignInTime'> {

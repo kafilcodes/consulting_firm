@@ -46,17 +46,17 @@ const handleAuthError = (error: any): never => {
   throw new Error(errorMessages[error.code] || 'An error occurred during authentication. Please try again.');
 };
 
-export const handleAuthToken = async (user: User | null) => {
+export const handleAuthToken = async (firebaseUser: FirebaseUser) => {
   try {
-    if (!user) {
+    if (!firebaseUser) {
       destroyCookie(null, 'auth-token');
       destroyCookie(null, 'user-role');
       return;
     }
 
-    const token = await user.getIdToken();
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-    const role = userDoc.exists() ? userDoc.data().role : 'user';
+    const token = await firebaseUser.getIdToken();
+    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    const role = userDoc.exists() ? userDoc.data().role : 'client';
 
     const response = await fetch('/api/auth/token', {
       method: 'POST',
@@ -90,15 +90,13 @@ async function createOrUpdateUserDocument(
     if (!userDoc.exists()) {
       // Create new user document
       const userData: User = {
-        id: firebaseUser.uid,
-        email: firebaseUser.email!,
-        name: additionalData.name || firebaseUser.displayName || 'User',
-        role: additionalData.role || 'client',
+        uid: firebaseUser.uid,
+        email: firebaseUser.email,
+        displayName: additionalData.displayName || firebaseUser.displayName || 'User',
         photoURL: firebaseUser.photoURL,
+        role: additionalData.role || 'client',
         createdAt: timestamp,
-        updatedAt: timestamp,
-        lastLoginAt: timestamp,
-        ...additionalData,
+        lastSignInTime: timestamp,
       };
 
       await setDoc(userRef, userData);
@@ -108,8 +106,7 @@ async function createOrUpdateUserDocument(
       const userData = userDoc.data() as User;
       const updatedData = {
         ...userData,
-        lastLoginAt: timestamp,
-        updatedAt: timestamp,
+        lastSignInTime: timestamp,
         ...additionalData,
       };
 
@@ -165,13 +162,15 @@ export const signInWithGoogle = async (): Promise<User> => {
       throw new Error('No user data returned from Google sign in');
     }
 
-    // Set auth token
+    // Set auth token first
     await handleAuthToken(firebaseUser);
 
     // Create or update user document
     const user = await createOrUpdateUserDocument(firebaseUser, {
-      loginProvider: 'google',
       role: 'client', // Default role for new Google users
+      displayName: firebaseUser.displayName || 'User',
+      email: firebaseUser.email,
+      photoURL: firebaseUser.photoURL,
     });
 
     if (!user) {
@@ -281,7 +280,7 @@ export async function getCurrentUser(): Promise<User | null> {
     // Refresh token if needed
     await handleAuthToken(firebaseUser);
 
-    return { id: userDoc.id, ...userDoc.data() } as User;
+    return { uid: userDoc.id, ...userDoc.data() } as User;
   } catch (error) {
     console.error('Get current user error:', error);
     return null;

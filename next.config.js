@@ -10,9 +10,19 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '2mb'
     },
+    optimizeCss: true,
   },
   images: {
-    domains: ['images.unsplash.com', 'lh3.googleusercontent.com'],
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'images.unsplash.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+      }
+    ],
   },
   env: {
     NEXT_PUBLIC_FIREBASE_API_KEY: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,

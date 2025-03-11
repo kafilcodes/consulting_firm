@@ -41,14 +41,9 @@ export function Footer() {
       <div className="mx-auto max-w-7xl overflow-hidden px-6 py-20 sm:py-24 lg:px-8">
         <div className="flex justify-center">
           <Link href="/" className="-m-1.5 p-1.5">
-            <span className="sr-only">SKS Consulting</span>
-            <Image
-              src="/logo/logo.png"
-              alt="SKS Consulting"
-              width={120}
-              height={40}
-              className="h-8 w-auto"
-            />
+            <h2 className="text-2xl font-bold text-gray-900">
+              SKS Consulting
+            </h2>
           </Link>
         </div>
         <nav className="mt-8 columns-2 sm:flex sm:justify-center sm:space-x-12" aria-label="Footer">

@@ -173,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
     try {
       if (!user) throw new Error('No user logged in');
-      await updateUserProfile(user.id, data);
+      await updateUserProfile(user.uid, data);
       const updatedUser = await getCurrentUser();
       setUser(updatedUser);
       toast.success('Profile updated successfully');

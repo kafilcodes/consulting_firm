@@ -7,20 +7,21 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle } from 'lucide-react';
+import { useAppSelector } from '@/store';
 
 const carouselItems = [
   {
-    image: '/images/pexels-rdne-7821708.jpg',
+    image: 'https://images.unsplash.com/photo-1454165804606-c3d57bc86b40',
     title: 'Tax Made Simple',
     description: 'Let us handle the complexities of tax while you focus on growing your business',
   },
   {
-    image: '/images/pexels-n-voitkevich-6863281.jpg',
+    image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf',
     title: 'Strategic Consulting',
     description: 'Transform your business with our expert consulting services',
   },
   {
-    image: '/images/pexels-karolina-grabowska-7680751.jpg',
+    image: 'https://images.unsplash.com/photo-1554224154-26032ffc0d07',
     title: 'Professional Audit',
     description: 'Comprehensive audit services to ensure your business compliance',
   },
@@ -46,6 +47,7 @@ const services = [
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
+  const { user } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -58,6 +60,66 @@ export default function Home() {
     <>
       <Navbar />
       <main className="flex min-h-screen flex-col">
+        {/* Hero Section */}
+        <section className="relative isolate px-6 pt-14 lg:px-8">
+          <div className="mx-auto max-w-2xl py-32 sm:py-48 lg:py-56">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="text-center"
+            >
+              {user ? (
+                <>
+                  <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+                    Welcome back, {user.displayName || 'valued client'}!
+                  </h1>
+                  <p className="mt-6 text-lg leading-8 text-gray-600">
+                    Access your personalized dashboard to manage your projects and services. We're here to help you succeed.
+                  </p>
+                  <div className="mt-10 flex items-center justify-center gap-x-6">
+                    <Link
+                      href={user.role === 'admin' ? '/admin/dashboard' : '/dashboard'}
+                      className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    >
+                      Go to Dashboard
+                    </Link>
+                    <Link
+                      href="/services"
+                      className="text-sm font-semibold leading-6 text-gray-900"
+                    >
+                      View Our Services <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-6xl">
+                    Professional Consulting Services
+                  </h1>
+                  <p className="mt-6 text-lg leading-8 text-gray-600">
+                    Expert guidance and solutions tailored to your business needs. Join us to transform your ideas into success.
+                  </p>
+                  <div className="mt-10 flex items-center justify-center gap-x-6">
+                    <Link
+                      href="/auth/sign-up"
+                      className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                    >
+                      Get Started
+                    </Link>
+                    <Link
+                      href="/services"
+                      className="text-sm font-semibold leading-6 text-gray-900"
+                    >
+                      Learn More <span aria-hidden="true">→</span>
+                    </Link>
+                  </div>
+                </>
+              )}
+            </motion.div>
+          </div>
+        </section>
+
         {/* Hero Carousel */}
         <div className="relative h-[600px] w-full overflow-hidden">
           {carouselItems.map((item, index) => (
@@ -76,6 +138,8 @@ export default function Home() {
                 fill
                 className="object-cover"
                 priority={index === 0}
+                quality={85}
+                sizes="100vw"
               />
               <div className="absolute inset-0 bg-black/40" />
               <div className="absolute inset-0 flex items-center justify-center">
@@ -115,11 +179,16 @@ export default function Home() {
         </div>
 
         {/* Services Section */}
-        <section className="py-20 px-4 bg-gray-50">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-              Our Services
-            </h2>
+        <section id="services" className="py-24 bg-gray-50">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center">
+              <h2 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+                Our Services
+              </h2>
+              <p className="mt-6 text-lg leading-8 text-gray-600">
+                Comprehensive solutions tailored to your business needs
+              </p>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
               {services.map((service, index) => (
                 <motion.div
