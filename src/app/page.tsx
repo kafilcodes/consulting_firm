@@ -8,6 +8,7 @@ import { Footer } from '@/components/layout/footer';
 import { motion } from 'framer-motion';
 import { ArrowRight, CheckCircle } from 'lucide-react';
 import { useAppSelector } from '@/store';
+import { useRouter } from 'next/navigation';
 
 const carouselItems = [
   {
@@ -47,7 +48,20 @@ const services = [
 
 export default function Home() {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const { user } = useAppSelector((state) => state.auth);
+  const { user, isInitialized } = useAppSelector((state) => state.auth);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isInitialized && user) {
+      if (user.role === 'ADMIN') {
+        router.push('/admin/dashboard');
+      } else if (user.role === 'CLIENT') {
+        router.push('/client/dashboard');
+      } else if (user.role === 'CONSULTANT') {
+        router.push('/consultant/dashboard');
+      }
+    }
+  }, [user, isInitialized, router]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -79,7 +93,13 @@ export default function Home() {
                   </p>
                   <div className="mt-10 flex items-center justify-center gap-x-6">
                     <Link
-                      href={user.role === 'admin' ? '/admin/dashboard' : '/dashboard'}
+                      href={
+                        user.role === 'ADMIN'
+                          ? '/admin/dashboard'
+                          : user.role === 'CLIENT'
+                          ? '/client/dashboard'
+                          : '/consultant/dashboard'
+                      }
                       className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                     >
                       Go to Dashboard
@@ -102,7 +122,7 @@ export default function Home() {
                   </p>
                   <div className="mt-10 flex items-center justify-center gap-x-6">
                     <Link
-                      href="/auth/sign-up"
+                      href="/auth/sign-in"
                       className="rounded-md bg-blue-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                     >
                       Get Started

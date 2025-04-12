@@ -18,7 +18,8 @@ import {
   getIdToken,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider, actionCodeSettings } from './config';
+import { auth, db, googleProvider } from './config';
+import { actionCodeSettings } from './config';
 import type { User, UserRole } from '@/types';
 import { setCookie, destroyCookie } from 'nookies';
 import { FirebaseError } from 'firebase/app';
@@ -324,4 +325,89 @@ export async function updatePassword(currentPassword: string, newPassword: strin
   } catch (error) {
     throw handleAuthError(error);
   }
-} 
+}
+
+/**
+ * Serializes a Firebase user object into our application's User type
+ */
+export const serializeUser = async (firebaseUser: any): Promise<any> => {
+  if (!firebaseUser) {
+    throw new Error('No user data provided');
+  }
+  
+  // Extract user data from Firebase user object
+  const { uid, displayName, email, photoURL, metadata } = firebaseUser;
+  
+  // Format timestamps
+  const createdAt = formatDate(metadata?.creationTime || new Date());
+  const lastSignInTime = formatDate(metadata?.lastSignInTime || new Date());
+  
+  // Get token for cookie authentication
+  const token = await firebaseUser.getIdToken();
+  
+  // Default to client role if not specified
+  // In a real app, you might want to check a database for the user's role
+  const role = 'client'; // Default role
+  
+  // Update auth cookies in the backend
+  await updateAuthCookies(token, role);
+  
+  // Create serialized user object
+  return {
+    uid,
+    displayName,
+    email,
+    photoURL,
+    role,
+    createdAt,
+    lastSignInTime,
+  };
+};
+
+/**
+ * Formats various timestamp formats to ISO string
+ */
+const formatDate = (timestamp: any): string => {
+  if (!timestamp) return '';
+  
+  try {
+    // Handle different timestamp formats from Firebase
+    if (typeof timestamp === 'string') {
+      return timestamp;
+    }
+    
+    if (timestamp.toDate) {
+      return timestamp.toDate().toISOString();
+    }
+    
+    if (timestamp.seconds) {
+      return new Date(timestamp.seconds * 1000).toISOString();
+    }
+    
+    return new Date(timestamp).toISOString();
+  } catch (error) {
+    console.error('Error formatting timestamp:', error);
+    return '';
+  }
+};
+
+/**
+ * Updates auth cookies via API call
+ */
+const updateAuthCookies = async (token: string | null, role: string | null): Promise<void> => {
+  try {
+    const response = await fetch('/api/auth/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, role }),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update auth cookies');
+    }
+  } catch (error) {
+    console.error('Error updating auth cookies:', error);
+  }
+}; 

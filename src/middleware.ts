@@ -1,57 +1,76 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
-export function middleware(request: NextRequest) {
-  const authToken = request.cookies.get('auth-token');
-  const userRole = request.cookies.get('user-role');
+// Define paths that don't require authentication
+const publicPaths = [
+  '/',
+  '/about',
+  '/services',
+  '/contact',
+  '/auth/signin',
+  '/auth/sign-in',
+  '/auth/reset-password',
+  '/unauthorized'
+];
+
+// Static files and API routes patterns
+const staticFilesPattern = /\.(ico|png|jpg|jpeg|svg|css|js|json)$/;
+const apiRoutesPattern = /^\/api\//;
+const nextInternalsPattern = /^\/_next\//;
+
+// Role-specific path patterns
+const clientPathPattern = /^\/client(\/|$)/;
+const adminPathPattern = /^\/admin(\/|$)/;
+const consultantPathPattern = /^\/consultant(\/|$)/;
+
+export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-
-  // Public routes that don't require authentication
-  const publicRoutes = [
-    '/',
-    '/auth/sign-in',
-    '/auth/sign-up',
-    '/auth/reset-password',
-  ];
-
-  // Check if the route is public
-  if (publicRoutes.includes(pathname)) {
-    // If user is already authenticated, redirect to appropriate dashboard
-    if (authToken) {
-      if (userRole?.value === 'client') {
-        return NextResponse.redirect(new URL('/client', request.url));
-      }
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
+  
+  // Check if the path is public - allow access
+  if (publicPaths.includes(pathname)) {
     return NextResponse.next();
   }
 
-  // Protected routes handling
-  if (!authToken) {
-    // Redirect to sign in page if not authenticated
-    const signInUrl = new URL('/auth/sign-in', request.url);
+  // For static files, API routes, and Next.js internals - skip auth check
+  if (
+    staticFilesPattern.test(pathname) ||
+    apiRoutesPattern.test(pathname) ||
+    nextInternalsPattern.test(pathname)
+  ) {
+    return NextResponse.next();
+  }
+
+  // Get auth token from cookies
+  const cookieStore = cookies();
+  const token = cookieStore.get('auth-token')?.value;
+  const userRole = cookieStore.get('user-role')?.value;
+
+  // No token means user is not authenticated
+  if (!token) {
+    // Redirect to sign-in page with callback URL
+    const signInUrl = new URL('/auth/signin', request.url);
     signInUrl.searchParams.set('callbackUrl', pathname);
     return NextResponse.redirect(signInUrl);
   }
 
   // Role-based access control
-  if (pathname.startsWith('/admin')) {
-    if (userRole?.value !== 'admin' && userRole?.value !== 'employee') {
-      // Redirect non-admin users to client dashboard
-      return NextResponse.redirect(new URL('/client', request.url));
-    }
+  if (clientPathPattern.test(pathname) && userRole !== 'client' && userRole !== 'admin') {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 
-  if (pathname.startsWith('/client')) {
-    if (userRole?.value !== 'client') {
-      // Redirect non-client users to admin dashboard
-      return NextResponse.redirect(new URL('/admin', request.url));
-    }
+  if (adminPathPattern.test(pathname) && userRole !== 'admin') {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 
+  if (consultantPathPattern.test(pathname) && userRole !== 'consultant' && userRole !== 'admin') {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
+  }
+
+  // If we get here, the user is authenticated and has the correct role
   return NextResponse.next();
 }
 
+// Configure the middleware to run on specific paths (exclude static resources)
 export const config = {
   matcher: [
     /*
@@ -59,8 +78,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - public (public files)
+     * - public folder
      */
-    '/((?!_next/static|_next/image|favicon.ico|public).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 }; 

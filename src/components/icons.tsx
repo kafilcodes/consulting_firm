@@ -16,6 +16,12 @@ import {
   Trash,
   X,
   Menu,
+  LayoutDashboard,
+  Folder,
+  Users,
+  CreditCard,
+  HelpCircle,
+  Bell,
   type LucideIcon,
   type LucideProps,
 } from "lucide-react"
@@ -40,6 +46,12 @@ export const Icons = {
   file: File,
   trash: Trash,
   menu: Menu,
+  dashboard: LayoutDashboard,
+  folder: Folder,
+  users: Users,
+  creditCard: CreditCard,
+  helpCircle: HelpCircle,
+  bell: Bell,
   google: ({ ...props }: LucideProps) => (
     <svg
       aria-hidden="true"
