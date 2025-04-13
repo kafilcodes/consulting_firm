@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { ShoppingCart } from 'lucide-react';
 import { useCartStore } from '@/stores/cart-store';
+import Image from 'next/image';
 
 const navigation = [
   { name: 'Home', href: '/client' },
@@ -26,8 +27,18 @@ export function ClientNavbar() {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/client" className="text-xl font-bold text-gray-800">
-                SKS Consulting
+              <Link href="/client" className="flex items-center">
+                <Image
+                  src="/images/logo/sks_logo.png"
+                  alt="SKS Consulting Logo"
+                  width={45}
+                  height={45}
+                  className="h-9 w-auto mr-2"
+                  priority
+                />
+                <span className="text-lg font-bold hidden sm:inline-block text-gray-800">
+                  SKS Consulting Firm
+                </span>
               </Link>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">

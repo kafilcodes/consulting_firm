@@ -328,46 +328,9 @@ export async function updatePassword(currentPassword: string, newPassword: strin
 }
 
 /**
- * Serializes a Firebase user object into our application's User type
- */
-export const serializeUser = async (firebaseUser: any): Promise<any> => {
-  if (!firebaseUser) {
-    throw new Error('No user data provided');
-  }
-  
-  // Extract user data from Firebase user object
-  const { uid, displayName, email, photoURL, metadata } = firebaseUser;
-  
-  // Format timestamps
-  const createdAt = formatDate(metadata?.creationTime || new Date());
-  const lastSignInTime = formatDate(metadata?.lastSignInTime || new Date());
-  
-  // Get token for cookie authentication
-  const token = await firebaseUser.getIdToken();
-  
-  // Default to client role if not specified
-  // In a real app, you might want to check a database for the user's role
-  const role = 'client'; // Default role
-  
-  // Update auth cookies in the backend
-  await updateAuthCookies(token, role);
-  
-  // Create serialized user object
-  return {
-    uid,
-    displayName,
-    email,
-    photoURL,
-    role,
-    createdAt,
-    lastSignInTime,
-  };
-};
-
-/**
  * Formats various timestamp formats to ISO string
  */
-const formatDate = (timestamp: any): string => {
+export const formatDate = (timestamp: any): string => {
   if (!timestamp) return '';
   
   try {
@@ -392,10 +355,75 @@ const formatDate = (timestamp: any): string => {
 };
 
 /**
+ * Serializes a Firebase user object into our application's User type
+ */
+export const serializeUser = async (firebaseUser: any): Promise<any> => {
+  if (!firebaseUser) {
+    throw new Error('No user data provided');
+  }
+  
+  try {
+    console.log('Serializing user:', firebaseUser.uid);
+    
+    // Extract user data from Firebase user object
+    const { uid, displayName, email, photoURL, metadata } = firebaseUser;
+    
+    // Get token for cookie authentication
+    const token = await firebaseUser.getIdToken(true); // Force refresh token
+    
+    // Determine user role - in a real app, you would fetch this from a database
+    // For now, using a simple mapping by email domain or set a default
+    let role = 'client'; // Default role
+    
+    // Example logic for role determination:
+    if (email) {
+      if (email.endsWith('@admin.sks-consulting.com')) {
+        role = 'admin';
+      } else if (email.endsWith('@consultant.sks-consulting.com')) {
+        role = 'consultant';
+      } else if (email === 'admin@example.com' || email === 'admin@test.com') {
+        // For testing purposes
+        role = 'admin';
+      } else if (email === 'consultant@example.com' || email === 'consultant@test.com') {
+        // For testing purposes
+        role = 'consultant';
+      }
+    }
+    
+    console.log('Assigned role:', role);
+    
+    // Format timestamps
+    const createdAt = formatDate(metadata?.creationTime || new Date());
+    const lastSignInTime = formatDate(metadata?.lastSignInTime || new Date());
+    
+    // Update auth cookies in the backend
+    await updateAuthCookies(token, role);
+    
+    // Create serialized user object
+    const user = {
+      uid,
+      displayName,
+      email,
+      photoURL,
+      role,
+      createdAt,
+      lastSignInTime,
+    };
+    
+    console.log('User serialized successfully');
+    return user;
+  } catch (error) {
+    console.error('Error in serializeUser:', error);
+    throw error;
+  }
+};
+
+/**
  * Updates auth cookies via API call
  */
-const updateAuthCookies = async (token: string | null, role: string | null): Promise<void> => {
+export const updateAuthCookies = async (token: string | null, role: string | null): Promise<void> => {
   try {
+    console.log('Updating auth cookies:', { hasToken: !!token, role });
     const response = await fetch('/api/auth/token', {
       method: 'POST',
       headers: {
@@ -407,6 +435,8 @@ const updateAuthCookies = async (token: string | null, role: string | null): Pro
     if (!response.ok) {
       throw new Error('Failed to update auth cookies');
     }
+    
+    console.log('Auth cookies updated successfully');
   } catch (error) {
     console.error('Error updating auth cookies:', error);
   }

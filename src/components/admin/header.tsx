@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Bell, User, Menu } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export function AdminHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -21,6 +22,21 @@ export function AdminHeader() {
                 <span className="sr-only">Open sidebar</span>
                 <Menu className="h-6 w-6" aria-hidden="true" />
               </button>
+              <div className="ml-2 lg:hidden">
+                <Link href="/admin" className="flex items-center">
+                  <Image
+                    src="/images/logo/sks_logo.png"
+                    alt="SKS Admin"
+                    width={40}
+                    height={40}
+                    className="h-8 w-auto mr-2"
+                    priority
+                  />
+                  <span className="text-base font-bold text-gray-800">
+                    SKS Admin
+                  </span>
+                </Link>
+              </div>
             </div>
           </div>
           <div className="flex items-center">

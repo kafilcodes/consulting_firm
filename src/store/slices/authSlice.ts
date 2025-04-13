@@ -7,7 +7,13 @@ import {
   signOut as firebaseSignOut
 } from 'firebase/auth';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db, googleProvider } from '@/lib/firebase/config';
+import { 
+  auth, 
+  db, 
+  googleProvider, 
+  serializeUser, 
+  updateAuthCookies 
+} from '@/lib/firebase';
 import type { User } from '@/types';
 import { toast } from 'sonner';
 
@@ -52,209 +58,128 @@ const formatDate = (timestamp: any): string => {
   }
 };
 
-// Helper function to serialize user data
-const serializeUser = async (firebaseUser: any): Promise<User> => {
-  if (!firebaseUser) {
-    throw new Error('No user data provided');
-  }
-  
-  // Extract user data from Firebase user object
-  const { uid, displayName, email, photoURL, metadata } = firebaseUser;
-  
-  // Default to client role if not specified
-  const role = firebaseUser.role || 'client';
-  
-  // Format timestamps
-  const createdAt = formatDate(metadata?.creationTime || new Date());
-  const lastSignInTime = formatDate(metadata?.lastSignInTime || new Date());
-  
-  // Create serialized user object
-  const user: User = {
-    uid,
-    displayName,
-    email,
-    photoURL,
-    role,
-    createdAt,
-    lastSignInTime,
-  };
-  
-  // Update auth cookies in the backend
-  await updateAuthCookies(await firebaseUser.getIdToken(), role);
-  
-  return user;
-};
-
-// Function to update auth cookies
-const updateAuthCookies = async (token: string | null, role: string | null): Promise<void> => {
-  try {
-    const response = await fetch('/api/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, role }),
-    });
-    
-    if (!response.ok) {
-      throw new Error('Failed to update auth cookies');
-    }
-  } catch (error) {
-    console.error('Error updating auth cookies:', error);
-  }
-};
-
-// Sign in with Google using a popup (more reliable than redirect)
+// Async thunk to handle Google sign-in
 export const signInWithGoogle = createAsyncThunk(
   'auth/signInWithGoogle',
   async (_, { rejectWithValue }) => {
     try {
-      // Ensure we're using persistent auth
+      // Set persistence to LOCAL
       await setPersistence(auth, browserLocalPersistence);
       
-      // Configure Google provider
-      const provider = new GoogleAuthProvider();
-      provider.addScope('email');
-      provider.addScope('profile');
-      provider.setCustomParameters({
-        prompt: 'select_account', // Force account selection even if already logged in
-      });
-      
-      // Sign in with popup
-      const result = await signInWithPopup(auth, provider);
-      
-      // Get user details
+      // Sign in with Google popup
+      const result = await signInWithPopup(auth, googleProvider);
       const user = await serializeUser(result.user);
       
-      // Show success toast
-      toast.success(`Welcome, ${user.displayName || 'User'}!`);
+      // Set auth cookies for server-side auth
+      try {
+        await updateAuthCookies(result.user.uid, user.role || 'client');
+      } catch (error) {
+        console.error('Failed to update auth cookies:', error);
+        // Continue anyway as the client-side auth still works
+      }
       
+      console.log('Google sign-in successful, user:', user.uid);
       return user;
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      
-      // Show error toast
+      // Provide specific error messages for different sign-in failures
       let errorMessage = 'Failed to sign in with Google';
+      
       if (error.code === 'auth/popup-closed-by-user') {
-        errorMessage = 'Sign-in cancelled. Please try again.';
+        errorMessage = 'Sign-in was cancelled. Please try again.';
       } else if (error.code === 'auth/popup-blocked') {
-        errorMessage = 'Sign-in popup was blocked. Please enable popups for this site.';
+        errorMessage = 'Sign-in popup was blocked. Please allow popups for this site.';
+      } else if (error.code === 'auth/network-request-failed') {
+        errorMessage = 'Network error. Please check your internet connection.';
+      } else if (error.message) {
+        errorMessage = error.message;
       }
       
-      toast.error(errorMessage);
       return rejectWithValue(errorMessage);
     }
   }
 );
 
-// Initialize auth state by checking the current user
-export const initializeAuth = createAsyncThunk(
-  'auth/initializeAuth',
-  async (_, { rejectWithValue }) => {
-    try {
-      const firebaseUser = auth.currentUser;
-      
-      if (!firebaseUser) {
-        return null;
-      }
-      
-      // Get user details
-      const user = await serializeUser(firebaseUser);
-      
-      // Refresh token
-      const token = await firebaseUser.getIdToken(true);
-      await updateAuthCookies(token, user.role);
-      
-      return user;
-    } catch (error: any) {
-      console.error('Auth initialization error:', error);
-      return rejectWithValue(error.message || 'Failed to initialize authentication');
-    }
-  }
-);
-
-// Sign out
+// Async thunk to handle signing out
 export const signOut = createAsyncThunk(
   'auth/signOut',
   async (_, { rejectWithValue }) => {
     try {
       await firebaseSignOut(auth);
       await updateAuthCookies(null, null);
-      toast.success('Signed out successfully');
       return null;
     } catch (error: any) {
       console.error('Sign-out error:', error);
-      toast.error(error.message || 'Failed to sign out');
       return rejectWithValue(error.message || 'Failed to sign out');
     }
   }
 );
 
+// Create the auth slice
 const authSlice = createSlice({
   name: 'auth',
   initialState,
   reducers: {
+    // Set user
     setUser: (state, action: PayloadAction<User | null>) => {
       state.user = action.payload;
       state.isLoading = false;
       state.error = null;
     },
-    setInitialized: (state, action: PayloadAction<boolean> = { payload: true }) => {
+    // Set initialized state
+    initializeAuth: (state, action: PayloadAction<boolean> = { payload: true }) => {
       state.isInitialized = action.payload;
+      if (action.payload === true) {
+        state.isLoading = false;
+      }
     },
+    // Set error state
+    setError: (state, action: PayloadAction<string | null>) => {
+      state.error = action.payload;
+      state.isLoading = false;
+    },
+    // Clear any errors
     clearError: (state) => {
       state.error = null;
     },
   },
   extraReducers: (builder) => {
-    // Initialize auth
     builder
-      .addCase(initializeAuth.pending, (state) => {
-        state.isLoading = true;
-        state.error = null;
-      })
-      .addCase(initializeAuth.fulfilled, (state, action) => {
-        state.isLoading = false;
-        state.user = action.payload;
-        state.isInitialized = true;
-      })
-      .addCase(initializeAuth.rejected, (state, action) => {
-        state.isLoading = false;
-        state.error = action.payload as string;
-        state.isInitialized = true;
-      })
-    
-    // Google sign-in
-    builder
+      // Google Sign In
       .addCase(signInWithGoogle.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(signInWithGoogle.fulfilled, (state, action) => {
-        state.isLoading = false;
         state.user = action.payload;
+        state.isLoading = false;
+        state.error = null;
+        toast.success(`Welcome, ${action.payload.displayName || 'User'}!`);
       })
       .addCase(signInWithGoogle.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+        toast.error(action.payload as string || 'Authentication failed');
       })
-    
-    // Sign out
-    builder
+      
+      // Sign Out
       .addCase(signOut.pending, (state) => {
         state.isLoading = true;
         state.error = null;
       })
       .addCase(signOut.fulfilled, (state) => {
-        state.isLoading = false;
         state.user = null;
+        state.isLoading = false;
+        state.error = null;
+        toast.success('Signed out successfully');
       })
       .addCase(signOut.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+        toast.error(action.payload as string || 'Sign out failed');
       });
   },
 });
 
-export const { setUser, setInitialized, clearError } = authSlice.actions;
+export const { setUser, initializeAuth, setError, clearError } = authSlice.actions;
 export default authSlice.reducer; 

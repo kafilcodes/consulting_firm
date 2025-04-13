@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import Image from 'next/image';
 import {
   LayoutDashboard,
   Users,
@@ -31,8 +32,18 @@ export function AdminSidebar() {
     <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
       <div className="flex flex-grow flex-col overflow-y-auto bg-gray-900 pt-5">
         <div className="flex flex-shrink-0 items-center px-4">
-          <Link href="/admin" className="text-xl font-bold text-white">
-            SKS Admin
+          <Link href="/admin" className="flex items-center">
+            <Image
+              src="/images/logo/sks_logo.png"
+              alt="SKS Admin"
+              width={45}
+              height={45}
+              className="h-9 w-auto mr-2"
+              priority
+            />
+            <span className="text-lg font-bold text-white">
+              SKS Admin
+            </span>
           </Link>
         </div>
         <nav className="mt-5 flex-1 space-y-1 px-2">

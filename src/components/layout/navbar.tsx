@@ -137,35 +137,50 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
     <Disclosure as="nav" className={getNavbarStyles()}>
       {({ open }) => (
         <>
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            <div className="flex h-16 justify-between">
-              <div className="flex">
+          <div className="mx-auto max-w-7xl px-2 sm:px-6 lg:px-8">
+            <div className="relative flex h-16 items-center justify-between">
+              <div className="absolute inset-y-0 left-0 flex items-center sm:hidden">
+                {/* Mobile menu button*/}
+                <Disclosure.Button className="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white">
+                  <span className="sr-only">Open main menu</span>
+                  {open ? (
+                    <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
+                  ) : (
+                    <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
+                  )}
+                </Disclosure.Button>
+              </div>
+              <div className="flex flex-1 items-center justify-center sm:items-stretch sm:justify-start">
                 <div className="flex flex-shrink-0 items-center">
-                  <Link 
-                    href="/" 
-                    className={classNames(
-                      'text-xl font-bold',
+                  <Link href="/" aria-label="Home" className="flex items-center">
+                    <Image
+                      src="/images/logo/sks_logo.png"
+                      alt="SKS Consulting Logo"
+                      width={45}
+                      height={45}
+                      className="h-9 w-auto mr-2"
+                      priority
+                    />
+                    <span className={classNames(
+                      'text-lg font-bold hidden sm:inline-block',
                       variant === 'admin' ? 'text-white' : 'text-gray-900'
-                    )}
-                  >
-                    SKS Consulting
+                    )}>
+                      SKS Consulting Firm
+                    </span>
                   </Link>
                 </div>
-                <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
-                  {navigation.map((item) => (
-                    <Link
-                      key={item.name}
-                      href={item.href}
-                      className={classNames(
-                        pathname === item.href || pathname.startsWith(item.href + '/')
-                          ? getLinkStyles(true)
-                          : getLinkStyles(false),
-                        'inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium'
-                      )}
-                    >
-                      {item.name}
-                    </Link>
-                  ))}
+                <div className="hidden sm:ml-6 sm:block">
+                  <div className="flex space-x-4">
+                    {navigation.map((item) => (
+                      <Link
+                        key={item.name}
+                        href={item.href}
+                        className={getLinkStyles(pathname === item.href)}
+                      >
+                        {item.name}
+                      </Link>
+                    ))}
+                  </div>
                 </div>
               </div>
               <div className="hidden sm:ml-6 sm:flex sm:items-center">
@@ -251,21 +266,6 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
                     </Button>
                   </div>
                 )}
-              </div>
-              <div className="-mr-2 flex items-center sm:hidden">
-                <Disclosure.Button className={classNames(
-                  "inline-flex items-center justify-center rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500",
-                  variant === 'admin' 
-                    ? 'text-gray-400 hover:bg-gray-700 hover:text-white' 
-                    : 'text-gray-400 hover:bg-gray-100 hover:text-gray-500'
-                )}>
-                  <span className="sr-only">Open main menu</span>
-                  {open ? (
-                    <XMarkIcon className="block h-6 w-6" aria-hidden="true" />
-                  ) : (
-                    <Bars3Icon className="block h-6 w-6" aria-hidden="true" />
-                  )}
-                </Disclosure.Button>
               </div>
             </div>
           </div>
