@@ -1,0 +1,8 @@
+<svg width="160" height="48" viewBox="0 0 160 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="160" height="48" rx="4" fill="#F3F4F6"/>
+  <path d="M16 33L29 17" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+  <path d="M28 33L43 17" stroke="#1F2937" stroke-width="2" stroke-linecap="round"/>
+  <path d="M84 17C86.7614 17 89 19.2386 89 22V33H79C76.2386 33 74 30.7614 74 28V17H84Z" fill="#111827"/>
+  <path d="M96 24C96 20.6863 98.6863 18 102 18H117V32C117 35.3137 114.314 38 111 38H96V24Z" fill="#4B5563"/>
+  <text x="54" y="28" font-family="Arial" font-size="12" fill="#1F2937">TECHLABS</text>
+</svg> 
