@@ -1,89 +1,128 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Service } from '@/types';
+import { Service } from '@/lib/services';
 
+// Define cart item type
 export interface CartItem {
-  service: Service;
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  oldPrice?: number | null;
+  currency?: string;
   quantity: number;
+  imageUrl?: string;
+  serviceId: string;
+  category?: string;
 }
 
-interface CartStore {
+// Define cart store state
+interface CartState {
   items: CartItem[];
   addItem: (service: Service) => void;
-  removeItem: (serviceId: string) => void;
-  updateQuantity: (serviceId: string, quantity: number) => void;
+  removeItem: (id: string) => void;
+  updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
-  getTotal: () => {
-    subtotal: number;
-    tax: number;
-    total: number;
-  };
+  totalItems: () => number;
+  totalPrice: () => number;
+  getTotal: () => { subtotal: number; tax: number; total: number };
 }
 
-export const useCartStore = create<CartStore>()(
+// Tax rate for calculations
+const TAX_RATE = 0.18; // 18% GST
+
+// Create cart store with persistence
+export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
+      // Initial state
       items: [],
-
+      
+      // Add item to cart
       addItem: (service: Service) => {
-        set((state) => {
-          const existingItem = state.items.find(
-            (item) => item.service.id === service.id
-          );
-
-          if (existingItem) {
-            return {
-              items: state.items.map((item) =>
-                item.service.id === service.id
-                  ? { ...item, quantity: item.quantity + 1 }
-                  : item
-              ),
-            };
-          }
-
-          return {
-            items: [...state.items, { service, quantity: 1 }],
-          };
+        const currentItems = get().items;
+        const existingItem = currentItems.find(item => item.id === service.id);
+        
+        if (existingItem) {
+          // Increment quantity if item already exists
+          set({
+            items: currentItems.map(item => 
+              item.id === service.id 
+                ? { ...item, quantity: item.quantity + 1 } 
+                : item
+            )
+          });
+        } else {
+          // Add new item with quantity 1
+          set({ 
+            items: [...currentItems, { 
+              id: service.id,
+              serviceId: service.id,
+              name: service.name,
+              description: service.description,
+              price: service.price,
+              oldPrice: service.oldPrice,
+              currency: 'INR', // Default currency
+              quantity: 1,
+              imageUrl: service.imageUrl,
+              category: service.categoryId
+            }] 
+          });
+        }
+      },
+      
+      // Remove item from cart
+      removeItem: (id: string) => {
+        set({
+          items: get().items.filter(item => item.id !== id)
         });
       },
-
-      removeItem: (serviceId: string) => {
-        set((state) => ({
-          items: state.items.filter((item) => item.service.id !== serviceId),
-        }));
-      },
-
-      updateQuantity: (serviceId: string, quantity: number) => {
-        set((state) => ({
-          items: state.items.map((item) =>
-            item.service.id === serviceId
-              ? { ...item, quantity: Math.max(0, quantity) }
+      
+      // Update item quantity
+      updateQuantity: (id: string, quantity: number) => {
+        // Don't allow quantity less than 1
+        if (quantity < 1) return;
+        
+        set({
+          items: get().items.map(item => 
+            item.id === id 
+              ? { ...item, quantity } 
               : item
-          ),
-        }));
+          )
+        });
       },
-
+      
+      // Clear entire cart
       clearCart: () => {
         set({ items: [] });
       },
-
-      getTotal: () => {
-        const items = get().items;
-        const subtotal = items.reduce(
-          (total, item) => total + item.service.price.amount * item.quantity,
+      
+      // Calculate total items
+      totalItems: () => {
+        return get().items.reduce((total, item) => total + item.quantity, 0);
+      },
+      
+      // Calculate total price
+      totalPrice: () => {
+        return get().items.reduce(
+          (total, item) => total + (item.price * item.quantity), 
           0
         );
-        const tax = subtotal * 0.18; // 18% GST
-        const total = subtotal + tax;
-
+      },
+      
+      // Get detailed totals with tax calculation
+      getTotal: () => {
+        const subtotal = get().totalPrice();
+        const tax = subtotal * TAX_RATE;
         return {
           subtotal,
           tax,
-          total,
+          total: subtotal + tax
         };
-      },
+      }
     }),
     {
+      // Persist cart in localStorage
       name: 'cart-storage',
     }
   )

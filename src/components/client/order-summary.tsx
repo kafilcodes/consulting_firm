@@ -20,7 +20,7 @@ export function OrderSummary({ items, total }: OrderSummaryProps) {
       <div className="mt-6 space-y-4">
         {items.map((item, index) => (
           <motion.div
-            key={item.service.id}
+            key={item.id}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
@@ -28,15 +28,15 @@ export function OrderSummary({ items, total }: OrderSummaryProps) {
           >
             <div className="flex items-center">
               <div>
-                <h3 className="text-sm text-gray-700">{item.service.name}</h3>
+                <h3 className="text-sm text-gray-700">{item.name}</h3>
                 <p className="mt-1 text-sm text-gray-500">Quantity: {item.quantity}</p>
               </div>
             </div>
             <p className="text-sm font-medium text-gray-900">
               {new Intl.NumberFormat('en-IN', {
                 style: 'currency',
-                currency: item.service.price.currency,
-              }).format(item.service.price.amount * item.quantity)}
+                currency: item.currency || 'INR',
+              }).format(item.price * item.quantity)}
             </p>
           </motion.div>
         ))}

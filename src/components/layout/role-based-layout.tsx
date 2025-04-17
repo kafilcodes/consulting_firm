@@ -3,9 +3,9 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
-import { Navbar } from './navbar';
 import AdminSidebar from './admin-sidebar';
-import ClientSidebar from './client-sidebar';
+import { ClientSidebar } from './client-sidebar';
+import { Navbar } from './navbar';
 import { toast } from 'sonner';
 
 interface RoleBasedLayoutProps {
@@ -39,7 +39,7 @@ export function RoleBasedLayout({ children }: RoleBasedLayoutProps) {
     return null;
   }
   
-  // Render appropriate layout based on user role
+  // Render appropriate layout based on user role - using string literals instead of enum
   switch (user.role) {
     case 'admin':
     case 'employee':

@@ -100,4 +100,5 @@ export type UserRole =
   | 'client'
   | 'admin'
   | 'employee'
-  | 'manager'; 
+  | 'manager'
+  | 'consultant'; 

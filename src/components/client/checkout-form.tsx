@@ -98,7 +98,7 @@ export function CheckoutForm({ orderId }: CheckoutFormProps) {
         currency: 'INR',
         orderId,
         name: 'SKS Consulting',
-        description: `Payment for ${items.map(item => item.service.name).join(', ')}`,
+        description: `Payment for ${items.map(item => item.name).join(', ')}`,
         image: '/logo.png',
         prefill: {
           name: data.name,

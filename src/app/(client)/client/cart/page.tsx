@@ -3,6 +3,7 @@
 import { Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCartStore } from '@/stores/cart-store';
+import Image from 'next/image';
 import { toast } from 'react-hot-toast';
 
 function CartContent() {
@@ -12,11 +13,11 @@ function CartContent() {
   const removeItem = useCartStore((state) => state.removeItem);
   const getTotal = useCartStore((state) => state.getTotal);
 
-  const handleQuantityChange = (serviceId: string, newQuantity: number) => {
+  const handleQuantityChange = (id: string, newQuantity: number) => {
     if (newQuantity === 0) {
-      removeItem(serviceId);
+      removeItem(id);
     } else {
-      updateQuantity(serviceId, newQuantity);
+      updateQuantity(id, newQuantity);
     }
   };
 
@@ -42,12 +43,14 @@ function CartContent() {
       <div className="flow-root">
         <ul role="list" className="-my-6 divide-y divide-gray-200">
           {items.map((item) => (
-            <li key={item.service.id} className="flex py-6">
-              {item.service.image && (
+            <li key={item.id} className="flex py-6">
+              {item.imageUrl && (
                 <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-md border border-gray-200">
-                  <img
-                    src={item.service.image}
-                    alt={item.service.name}
+                  <Image
+                    src={item.imageUrl}
+                    alt={item.name}
+                    width={96}
+                    height={96}
                     className="h-full w-full object-cover object-center"
                   />
                 </div>
@@ -55,28 +58,28 @@ function CartContent() {
               <div className="ml-4 flex flex-1 flex-col">
                 <div>
                   <div className="flex justify-between text-base font-medium text-gray-900">
-                    <h3>{item.service.name}</h3>
+                    <h3>{item.name}</h3>
                     <p className="ml-4">
                       {new Intl.NumberFormat('en-IN', {
                         style: 'currency',
-                        currency: item.service.price.currency,
-                      }).format(item.service.price.amount * item.quantity)}
+                        currency: item.currency || 'INR',
+                      }).format(item.price * item.quantity)}
                     </p>
                   </div>
                   <p className="mt-1 text-sm text-gray-500">
-                    {item.service.shortDescription}
+                    {item.description}
                   </p>
                 </div>
                 <div className="flex flex-1 items-end justify-between text-sm">
                   <div className="flex items-center space-x-2">
-                    <label htmlFor={`quantity-${item.service.id}`} className="text-gray-500">
+                    <label htmlFor={`quantity-${item.id}`} className="text-gray-500">
                       Qty
                     </label>
                     <select
-                      id={`quantity-${item.service.id}`}
+                      id={`quantity-${item.id}`}
                       value={item.quantity}
                       onChange={(e) =>
-                        handleQuantityChange(item.service.id, parseInt(e.target.value))
+                        handleQuantityChange(item.id, parseInt(e.target.value))
                       }
                       className="rounded-md border-gray-300 py-1.5 text-base leading-5 focus:border-blue-500 focus:outline-none focus:ring-blue-500 sm:text-sm"
                     >
@@ -89,7 +92,7 @@ function CartContent() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => removeItem(item.service.id)}
+                    onClick={() => removeItem(item.id)}
                     className="font-medium text-blue-600 hover:text-blue-500"
                   >
                     Remove

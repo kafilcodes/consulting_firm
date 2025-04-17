@@ -11,7 +11,7 @@ export async function POST(request: Request) {
     if (!token) {
       // Delete cookies if no token provided (sign out)
       console.log('API: Removing auth cookies (sign out)');
-      const cookieStore = await cookies();
+      const cookieStore = cookies();
       cookieStore.delete('auth-token');
       cookieStore.delete('user-role');
       return NextResponse.json({ success: true, message: 'Cookies removed successfully' });
@@ -19,8 +19,10 @@ export async function POST(request: Request) {
 
     // Set auth token cookie (7 days expiry)
     console.log('API: Setting auth-token cookie');
-    const cookieStore = await cookies();
-    cookieStore.set({
+    const cookieStore = cookies();
+    
+    // Use await with set() method in Next.js 15+
+    await cookieStore.set({
       name: 'auth-token',
       value: token,
       httpOnly: true,
@@ -34,7 +36,9 @@ export async function POST(request: Request) {
     if (role) {
       const normalizedRole = role.toLowerCase();
       console.log('API: Setting user-role cookie:', normalizedRole);
-      cookieStore.set({
+      
+      // Use await with set() method in Next.js 15+
+      await cookieStore.set({
         name: 'user-role',
         value: normalizedRole,
         httpOnly: true,

@@ -34,48 +34,58 @@ export function ProtectedRoute({
   const userRole = user?.role?.toLowerCase() || '';
   
   useEffect(() => {
-    // Skip protection checks while still loading auth state
-    if (isLoading || !isInitialized) return;
-    
-    // If authentication is required but user is not authenticated
-    if (authRequired && !isAuthenticated) {
-      toast.error('Please sign in to access this page');
-      router.push(`${redirectTo}?callbackUrl=${encodeURIComponent(pathname)}`);
+    // Wait until auth is initialized before performing any redirects
+    if (!isInitialized) {
       return;
     }
     
-    // If specific roles are required and user's role doesn't match
-    if (allowedRoles.length > 0 && !allowedRoles.map(role => role.toLowerCase()).includes(userRole)) {
-      toast.error("You don't have permission to access this page");
-      
-      // Redirect to appropriate dashboard based on role or to sign-in if not authenticated
-      const redirectPath = isAuthenticated 
-        ? userRole === 'admin' 
-          ? '/admin/dashboard' 
-          : userRole === 'client' 
-            ? '/client/dashboard' 
-            : userRole === 'consultant'
-              ? '/consultant/dashboard'
-              : '/'
-        : redirectTo;
-        
-      router.push(redirectPath);
+    // Check if authentication is required but user is not authenticated
+    if (authRequired && !isAuthenticated && !isLoading) {
+      const encodedCurrentPath = encodeURIComponent(pathname);
+      router.push(`${redirectTo}?callbackUrl=${encodedCurrentPath}`);
       return;
     }
-  }, [authRequired, allowedRoles, isAuthenticated, userRole, isLoading, isInitialized, router, pathname, redirectTo]);
-  
-  // Show a loading state while auth state is being determined
+
+    // Check if user has required role (if roles are specified)
+    if (
+      isAuthenticated && 
+      allowedRoles.length > 0 && 
+      !allowedRoles.includes(userRole)
+    ) {
+      router.push('/unauthorized');
+      return;
+    }
+  }, [
+    isAuthenticated, 
+    userRole, 
+    authRequired, 
+    allowedRoles, 
+    redirectTo, 
+    router, 
+    pathname, 
+    isLoading, 
+    isInitialized
+  ]);
+
+  // Show nothing while loading or redirecting
   if (isLoading || !isInitialized) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
-          <p className="text-gray-600 text-sm">Loading...</p>
-        </div>
+      <div className="flex items-center justify-center w-full h-screen">
+        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
       </div>
     );
   }
-  
-  // After loading, if we're still on this page, it means the user has access
+
+  // If auth is required and user is not authenticated, don't render children
+  if (authRequired && !isAuthenticated) {
+    return null;
+  }
+
+  // If roles are required and user doesn't have one of them, don't render children
+  if (isAuthenticated && allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {
+    return null;
+  }
+
+  // User is authenticated and authorized, render the children
   return <>{children}</>;
 } 
