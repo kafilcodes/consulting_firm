@@ -14,8 +14,9 @@ import {
   serverTimestamp,
   arrayUnion,
 } from 'firebase/firestore';
-import { db } from './config';
-import type { Service, Order, OrderStatus, User } from '@/types';
+import { db, storage } from './config';
+import type { Service, Order, OrderStatus, User, ServiceCategory, CartItem } from '@/types';
+import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // Service functions
 export async function getServices(): Promise<Service[]> {
@@ -193,4 +194,71 @@ export async function updateUser(id: string, data: Partial<User>): Promise<void>
     ...data,
     updatedAt: Timestamp.now(),
   });
+}
+
+// Service Categories
+export async function getServiceCategories(): Promise<ServiceCategory[]> {
+  try {
+    const categoriesRef = collection(db, 'serviceCategories');
+    const categoriesSnapshot = await getDocs(categoriesRef);
+    
+    return categoriesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      name: doc.data().name,
+      description: doc.data().description,
+      slug: doc.data().slug,
+      imageUrl: doc.data().imageUrl || null
+    }));
+  } catch (error) {
+    console.error('Error fetching service categories:', error);
+    throw error;
+  }
+}
+
+export async function getServiceCategory(categoryId: string): Promise<ServiceCategory | null> {
+  try {
+    const docRef = doc(db, 'serviceCategories', categoryId);
+    const docSnap = await getDoc(docRef);
+    
+    if (!docSnap.exists()) {
+      return null;
+    }
+    
+    return {
+      id: docSnap.id,
+      name: docSnap.data().name,
+      description: docSnap.data().description,
+      slug: docSnap.data().slug,
+      imageUrl: docSnap.data().imageUrl || null
+    };
+  } catch (error) {
+    console.error('Error fetching service category:', error);
+    throw error;
+  }
+}
+
+// Helper functions for file uploads
+export async function uploadFile(
+  file: File,
+  path: string,
+  metadata?: { [key: string]: string }
+): Promise<string> {
+  try {
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, file, { customMetadata: metadata });
+    return getDownloadURL(storageRef);
+  } catch (error) {
+    console.error('Error uploading file:', error);
+    throw error;
+  }
+}
+
+export async function deleteFile(path: string): Promise<void> {
+  try {
+    const storageRef = ref(storage, path);
+    await deleteObject(storageRef);
+  } catch (error) {
+    console.error('Error deleting file:', error);
+    throw error;
+  }
 } 

@@ -5,9 +5,15 @@ import { motion } from 'framer-motion';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { toast } from 'react-hot-toast';
-import { Lock } from 'lucide-react';
-import { updatePassword } from '@/lib/firebase/auth';
+import { toast } from 'sonner';
+import { Lock, Loader2 } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { updatePassword as firebaseUpdatePassword } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 
 const passwordSchema = z
   .object({
@@ -24,6 +30,8 @@ type PasswordFormData = z.infer<typeof passwordSchema>;
 
 export function ChangePassword() {
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
 
   const {
     register,
@@ -35,154 +43,166 @@ export function ChangePassword() {
   });
 
   const onSubmit = async (data: PasswordFormData) => {
+    if (!auth.currentUser) {
+      setError('You must be logged in to change your password');
+      toast.error('Authentication error');
+      return;
+    }
+
     try {
       setIsLoading(true);
-      await updatePassword(data.currentPassword, data.newPassword);
-      toast.success('Password updated successfully');
-      reset();
-    } catch (error) {
+      setError(null);
+      setSuccess(false);
+
+      // For email/password users (not OAuth users)
+      if (auth.currentUser.providerData.some(provider => provider.providerId === 'password')) {
+        await firebaseUpdatePassword(auth.currentUser, data.newPassword);
+        setSuccess(true);
+        toast.success('Password updated successfully');
+        reset();
+
+        // Clear success message after 3 seconds
+        setTimeout(() => {
+          setSuccess(false);
+        }, 3000);
+      } else {
+        // For OAuth users who don't have a password
+        setError('Cannot change password for accounts that signed in with Google or other providers');
+        toast.error('Password change not available for this account type');
+      }
+    } catch (error: any) {
       console.error('Failed to update password:', error);
-      toast.error('Failed to update password. Please check your current password.');
+      
+      let errorMessage = 'Failed to update password. Please try again.';
+      
+      // Handle specific Firebase Auth errors
+      if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'For security reasons, please sign out and sign in again before changing your password.';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Please choose a stronger password.';
+      } else if (error.code === 'auth/wrong-password') {
+        errorMessage = 'Current password is incorrect.';
+      }
+      
+      setError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
+  // Check if user signed in with OAuth rather than email/password
+  const isOAuthUser = auth.currentUser?.providerData.every(provider => provider.providerId !== 'password');
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="bg-white shadow rounded-lg"
-    >
-      <div className="p-6">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">
-          Change Password
-        </h2>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label
-              htmlFor="currentPassword"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Current Password
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+    <Card>
+      <CardHeader>
+        <CardTitle>Change Password</CardTitle>
+        <CardDescription>
+          Update your password to keep your account secure
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isOAuthUser && (
+          <Alert className="mb-6 bg-amber-50 text-amber-800 border-amber-200">
+            <AlertTitle>Not Available</AlertTitle>
+            <AlertDescription>
+              Password change is not available for accounts that signed in with Google or other providers.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
+        {success && (
+          <Alert className="mb-6 bg-green-50 text-green-800 border-green-200">
+            <AlertTitle>Success</AlertTitle>
+            <AlertDescription>
+              Your password has been updated successfully.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        <form id="password-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="currentPassword">Current Password</Label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Lock className="h-4 w-4 text-gray-400" />
+              </span>
+              <Input
+                id="currentPassword"
                 type="password"
                 {...register('currentPassword')}
-                className={`block w-full pl-10 sm:text-sm rounded-md ${
-                  errors.currentPassword
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                }`}
+                className={`pl-10 ${errors.currentPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                disabled={isLoading || isOAuthUser}
               />
             </div>
             {errors.currentPassword && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.currentPassword.message}
-              </p>
+              <p className="text-sm text-red-600 mt-1">{errors.currentPassword.message}</p>
             )}
           </div>
 
-          <div>
-            <label
-              htmlFor="newPassword"
-              className="block text-sm font-medium text-gray-700"
-            >
-              New Password
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+          <div className="space-y-2">
+            <Label htmlFor="newPassword">New Password</Label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Lock className="h-4 w-4 text-gray-400" />
+              </span>
+              <Input
+                id="newPassword"
                 type="password"
                 {...register('newPassword')}
-                className={`block w-full pl-10 sm:text-sm rounded-md ${
-                  errors.newPassword
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                }`}
+                className={`pl-10 ${errors.newPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                disabled={isLoading || isOAuthUser}
               />
             </div>
             {errors.newPassword && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.newPassword.message}
-              </p>
+              <p className="text-sm text-red-600 mt-1">{errors.newPassword.message}</p>
             )}
           </div>
 
-          <div>
-            <label
-              htmlFor="confirmPassword"
-              className="block text-sm font-medium text-gray-700"
-            >
-              Confirm New Password
-            </label>
-            <div className="mt-1 relative rounded-md shadow-sm">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Lock className="h-5 w-5 text-gray-400" />
-              </div>
-              <input
+          <div className="space-y-2">
+            <Label htmlFor="confirmPassword">Confirm New Password</Label>
+            <div className="relative">
+              <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                <Lock className="h-4 w-4 text-gray-400" />
+              </span>
+              <Input
+                id="confirmPassword"
                 type="password"
                 {...register('confirmPassword')}
-                className={`block w-full pl-10 sm:text-sm rounded-md ${
-                  errors.confirmPassword
-                    ? 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                    : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                }`}
+                className={`pl-10 ${errors.confirmPassword ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                disabled={isLoading || isOAuthUser}
               />
             </div>
             {errors.confirmPassword && (
-              <p className="mt-1 text-sm text-red-600">
-                {errors.confirmPassword.message}
-              </p>
+              <p className="text-sm text-red-600 mt-1">{errors.confirmPassword.message}</p>
             )}
           </div>
-
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={`inline-flex justify-center py-2 px-4 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                isLoading ? 'opacity-75 cursor-not-allowed' : ''
-              }`}
-            >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Updating...
-                </>
-              ) : (
-                'Update Password'
-              )}
-            </button>
-          </div>
         </form>
-      </div>
-    </motion.div>
+      </CardContent>
+      <CardFooter className="flex justify-end border-t bg-gray-50 px-6 py-4">
+        <Button
+          type="submit"
+          form="password-form"
+          disabled={isLoading || isOAuthUser}
+        >
+          {isLoading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Updating...
+            </>
+          ) : (
+            'Update Password'
+          )}
+        </Button>
+      </CardFooter>
+    </Card>
   );
 } 

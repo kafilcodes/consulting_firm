@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ShoppingCart,
   User,
   Bell,
   LogOut,
@@ -20,7 +19,6 @@ import {
 } from 'lucide-react';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { signOut } from '@/store/slices/authSlice';
-import { useCartStore } from '@/stores/cart-store';
 import { toast } from 'sonner';
 import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -38,7 +36,7 @@ import { cn } from '@/lib/utils';
 
 // Navigation items with icons
 const navigation = [
-  { name: 'Dashboard', href: '/client', icon: Home },
+  { name: 'Dashboard', href: '/client/dashboard', icon: Home },
   { name: 'Services', href: '/client/services', icon: Package },
   { name: 'Orders', href: '/client/orders', icon: FileText },
   { name: 'Support', href: '/client/support', icon: HelpCircle },
@@ -51,8 +49,6 @@ export function ClientNavbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isScrolled, setIsScrolled] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
-  const cartItems = useCartStore((state) => state.items);
-  const itemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   // Handle scroll effects
   useEffect(() => {
@@ -185,20 +181,7 @@ export function ClientNavbar() {
               </DropdownMenuContent>
             </DropdownMenu>
             
-            {/* Cart */}
-            <Button variant="ghost" size="icon" asChild className="relative">
-              <Link href="/client/cart">
-                <ShoppingCart className="h-5 w-5 text-gray-600" />
-                {itemCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center">
-                    {itemCount}
-                  </Badge>
-                )}
-                <span className="sr-only">Cart</span>
-              </Link>
-            </Button>
-
-            {/* User menu */}
+            {/* User Profile */}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -263,17 +246,6 @@ export function ClientNavbar() {
           
           {/* Mobile menu button */}
           <div className="flex items-center sm:hidden space-x-2">
-            <Button variant="ghost" size="icon" asChild className="relative">
-              <Link href="/client/cart">
-                <ShoppingCart className="h-5 w-5 text-gray-600" />
-                {itemCount > 0 && (
-                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center">
-                    {itemCount}
-                  </Badge>
-                )}
-              </Link>
-            </Button>
-            
             <Button
               variant="ghost"
               size="icon"

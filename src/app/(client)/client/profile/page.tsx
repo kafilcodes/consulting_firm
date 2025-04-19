@@ -6,20 +6,21 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
-import { updateUserProfile } from '@/lib/firebase/auth';
+import { updateUserProfile, updateCurrentUser } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
 import Link from 'next/link';
-import { User, Phone, MapPin, Building, Loader2, CheckCircle, X, AlertTriangle, ChevronRight, Trash2, Save, Edit } from 'lucide-react';
+import { User, Phone, MapPin, Building, Loader2, CheckCircle, X, AlertTriangle, ChevronRight } from 'lucide-react';
 import { ChangePassword } from '@/components/auth/change-password';
 import { ProfileImageUpload } from '@/components/profile/profile-image-upload';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { DocumentUpload } from '@/components/profile/document-upload';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Switch } from '@/components/ui/switch';
+import { useRouter } from 'next/navigation';
 
 // More comprehensive profile schema with proper validations
 const profileSchema = z.object({
@@ -30,6 +31,18 @@ const profileSchema = z.object({
     .optional()
     .or(z.literal('')),
   company: z.string().max(100, 'Company name is too long').optional().or(z.literal('')),
+  gstin: z.string()
+    .regex(/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z]{1}[1-9A-Z]{1}Z[0-9A-Z]{1}$/, 'Please enter a valid GSTIN')
+    .optional()
+    .or(z.literal('')),
+  panNumber: z.string()
+    .regex(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, 'Please enter a valid PAN number')
+    .optional()
+    .or(z.literal('')),
+  aadharNumber: z.string()
+    .regex(/^[0-9]{12}$/, 'Please enter a valid 12-digit Aadhar number')
+    .optional()
+    .or(z.literal('')),
   address: z.object({
     street: z.string().max(100, 'Street address is too long').optional().or(z.literal('')),
     city: z.string().max(50, 'City name is too long').optional().or(z.literal('')),
@@ -41,7 +54,7 @@ const profileSchema = z.object({
 
 type ProfileFormData = z.infer<typeof profileSchema>;
 
-interface NotificationSettings {
+interface NotificationPreference {
   emailUpdates: boolean;
   orderUpdates: boolean;
   marketingEmails: boolean;
@@ -50,12 +63,13 @@ interface NotificationSettings {
 
 export default function ProfilePage() {
   const dispatch = useAppDispatch();
-  const { user } = useAppSelector((state) => state.auth);
+  const router = useRouter();
+  const { user, isLoading: authLoading } = useAppSelector((state) => state.auth);
   const [isLoading, setIsLoading] = useState(false);
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState('personal');
-  const [notificationSettings, setNotificationSettings] = useState<NotificationSettings>({
+  const [notificationPreferences, setNotificationPreferences] = useState<NotificationPreference>({
     emailUpdates: true,
     orderUpdates: true,
     marketingEmails: false,
@@ -73,6 +87,9 @@ export default function ProfilePage() {
       displayName: user?.displayName || '',
       phoneNumber: user?.phoneNumber || '',
       company: user?.company || '',
+      gstin: user?.gstin || '',
+      panNumber: user?.panNumber || '',
+      aadharNumber: user?.aadharNumber || '',
       address: {
         street: user?.address?.street || '',
         city: user?.address?.city || '',
@@ -83,6 +100,13 @@ export default function ProfilePage() {
     },
   });
 
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/auth/signin');
+    }
+  }, [user, authLoading, router]);
+
   // Update form when user data changes
   useEffect(() => {
     if (user) {
@@ -90,6 +114,9 @@ export default function ProfilePage() {
         displayName: user.displayName || '',
         phoneNumber: user.phoneNumber || '',
         company: user.company || '',
+        gstin: user.gstin || '',
+        panNumber: user.panNumber || '',
+        aadharNumber: user.aadharNumber || '',
         address: {
           street: user?.address?.street || '',
           city: user?.address?.city || '',
@@ -113,11 +140,15 @@ export default function ProfilePage() {
     setUpdateError(null);
 
     try {
-      // Update user profile in Firebase and Redux store
-      await updateUserProfile(user.uid, {
+      // Update user profile using the auth slice action
+      await dispatch(updateUserProfile({
+        uid: user.uid,
         displayName: data.displayName,
         phoneNumber: data.phoneNumber || null,
         company: data.company || null,
+        gstin: data.gstin || null,
+        panNumber: data.panNumber || null,
+        aadharNumber: data.aadharNumber || null,
         address: {
           street: data.address.street || null,
           city: data.address.city || null,
@@ -125,7 +156,7 @@ export default function ProfilePage() {
           postalCode: data.address.postalCode || null,
           country: data.address.country || null,
         },
-      });
+      })).unwrap();
 
       // Show success message and update UI
       setUpdateSuccess(true);
@@ -147,14 +178,16 @@ export default function ProfilePage() {
     }
   };
 
-  const handleNotificationChange = (key: keyof NotificationSettings, value: boolean) => {
-    setNotificationSettings(prev => ({
-      ...prev,
-      [key]: value
-    }));
-    
-    // In a real implementation, you would update these settings in your database
-    toast.success(`${key} notification setting updated`);
+  const handleNotificationToggle = (key: keyof NotificationPreference) => {
+    setNotificationPreferences(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      
+      // In a real app, save these preferences to Firebase
+      console.log('Updating notification preferences:', updated);
+      
+      toast.success(`${key} notifications ${updated[key] ? 'enabled' : 'disabled'}`);
+      return updated;
+    });
   };
 
   // Animation variants
@@ -173,6 +206,17 @@ export default function ProfilePage() {
     visible: { opacity: 1, y: 0 },
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="mt-2 text-gray-600">Loading your profile...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12">
@@ -183,6 +227,11 @@ export default function ProfilePage() {
             You need to be signed in to view this page. Please sign in and try again.
           </AlertDescription>
         </Alert>
+        <div className="mt-4">
+          <Button asChild>
+            <Link href="/auth/signin">Sign In</Link>
+          </Button>
+        </div>
       </div>
     );
   }
@@ -208,12 +257,11 @@ export default function ProfilePage() {
 
         <motion.div variants={itemVariants}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="personal">Personal Info</TabsTrigger>
               <TabsTrigger value="address">Address</TabsTrigger>
               <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="notifications">Notifications</TabsTrigger>
-              <TabsTrigger value="billing">Billing</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             {/* Personal Information Tab */}
@@ -319,6 +367,63 @@ export default function ProfilePage() {
                         </div>
                         {errors.company && (
                           <p className="text-sm text-red-600 mt-1">{errors.company.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="gstin" className="text-sm font-medium text-gray-700">
+                          GSTIN
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            {/* GSTIN icon placeholder */}
+                          </span>
+                          <Input
+                            id="gstin"
+                            {...register('gstin')}
+                            className={`pl-10 ${errors.gstin ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                          />
+                        </div>
+                        {errors.gstin && (
+                          <p className="text-sm text-red-600 mt-1">{errors.gstin.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="panNumber" className="text-sm font-medium text-gray-700">
+                          PAN Number
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            {/* PAN icon placeholder */}
+                          </span>
+                          <Input
+                            id="panNumber"
+                            {...register('panNumber')}
+                            className={`pl-10 ${errors.panNumber ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                          />
+                        </div>
+                        {errors.panNumber && (
+                          <p className="text-sm text-red-600 mt-1">{errors.panNumber.message}</p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="aadharNumber" className="text-sm font-medium text-gray-700">
+                          Aadhar Number
+                        </Label>
+                        <div className="relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
+                            {/* Aadhar icon placeholder */}
+                          </span>
+                          <Input
+                            id="aadharNumber"
+                            {...register('aadharNumber')}
+                            className={`pl-10 ${errors.aadharNumber ? 'border-red-300 focus:border-red-500 focus:ring-red-500' : ''}`}
+                          />
+                        </div>
+                        {errors.aadharNumber && (
+                          <p className="text-sm text-red-600 mt-1">{errors.aadharNumber.message}</p>
                         )}
                       </div>
                     </div>
@@ -538,243 +643,18 @@ export default function ProfilePage() {
               </Card>
             </TabsContent>
 
-            {/* Notifications Tab */}
-            <TabsContent value="notifications" className="space-y-6 pt-4">
+            {/* Documents Tab */}
+            <TabsContent value="documents" className="space-y-6 pt-4">
               <Card>
                 <CardHeader>
-                  <CardTitle>Notification Preferences</CardTitle>
-                  <CardDescription>Manage how and when you receive notifications</CardDescription>
+                  <CardTitle>Manage Documents</CardTitle>
+                  <CardDescription>
+                    Upload and manage important documents related to your services and account
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Email Notifications</h3>
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="email-updates">Account Updates</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive emails about your account activity
-                        </p>
-                      </div>
-                      <Switch
-                        id="email-updates"
-                        checked={notificationSettings.emailUpdates}
-                        onCheckedChange={(checked) => handleNotificationChange('emailUpdates', checked)}
-                      />
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="order-updates">Order Updates</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive notifications about your order status changes
-                        </p>
-                      </div>
-                      <Switch
-                        id="order-updates"
-                        checked={notificationSettings.orderUpdates}
-                        onCheckedChange={(checked) => handleNotificationChange('orderUpdates', checked)}
-                      />
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="marketing-emails">Marketing Emails</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive promotional offers and newsletters
-                        </p>
-                      </div>
-                      <Switch
-                        id="marketing-emails"
-                        checked={notificationSettings.marketingEmails}
-                        onCheckedChange={(checked) => handleNotificationChange('marketingEmails', checked)}
-                      />
-                    </div>
-                    
-                    <Separator />
-                    
-                    <div className="flex items-center justify-between">
-                      <div className="space-y-0.5">
-                        <Label htmlFor="service-announcements">Service Announcements</Label>
-                        <p className="text-sm text-muted-foreground">
-                          Receive updates about new services and features
-                        </p>
-                      </div>
-                      <Switch
-                        id="service-announcements"
-                        checked={notificationSettings.serviceAnnouncements}
-                        onCheckedChange={(checked) => handleNotificationChange('serviceAnnouncements', checked)}
-                      />
-                    </div>
-                  </div>
+                <CardContent>
+                  <DocumentUpload />
                 </CardContent>
-                <CardFooter className="flex justify-end border-t pt-6">
-                  <Button 
-                    onClick={() => toast.success('Notification preferences saved')} 
-                    disabled={isLoading}
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      'Save Preferences'
-                    )}
-                  </Button>
-                </CardFooter>
-              </Card>
-            </TabsContent>
-
-            {/* Billing Tab */}
-            <TabsContent value="billing" className="space-y-6 pt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Billing Information</CardTitle>
-                  <CardDescription>Manage your payment methods and view billing history</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-8">
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Payment Methods</h3>
-                    <div className="border rounded-md p-4">
-                      <div className="text-center py-6">
-                        <p className="text-muted-foreground">No payment methods added yet</p>
-                        <Button className="mt-4">
-                          Add Payment Method
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-medium">Billing History</h3>
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href="/client/orders">View All Orders</Link>
-                      </Button>
-                    </div>
-                    
-                    <div className="border rounded-md overflow-hidden">
-                      <table className="min-w-full divide-y divide-gray-200">
-                        <thead className="bg-gray-50">
-                          <tr>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Invoice
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Date
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Amount
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Status
-                            </th>
-                            <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                              Actions
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody className="bg-white divide-y divide-gray-200">
-                          {/* Empty state */}
-                          <tr>
-                            <td colSpan={5} className="px-6 py-8 text-center text-sm text-gray-500">
-                              No billing history available
-                            </td>
-                          </tr>
-                          
-                          {/* Example row (hidden for now)
-                          <tr className="hidden">
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                              INV-2023-001
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              Jan 15, 2023
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                              $299.00
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
-                                Paid
-                              </span>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                              <Button variant="ghost" size="sm">
-                                Download
-                              </Button>
-                            </td>
-                          </tr>
-                          */}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                  
-                  <div>
-                    <h3 className="text-lg font-medium mb-4">Billing Address</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="billing-name">Name on Card</Label>
-                        <Input
-                          id="billing-name"
-                          placeholder="Full name"
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="billing-email">Email</Label>
-                        <Input
-                          id="billing-email"
-                          type="email"
-                          placeholder="Email for receipts"
-                          defaultValue={user?.email || ''}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="billing-address">Address</Label>
-                        <Input
-                          id="billing-address"
-                          placeholder="Street address"
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-4">
-                        <div className="space-y-2">
-                          <Label htmlFor="billing-city">City</Label>
-                          <Input
-                            id="billing-city"
-                            placeholder="City"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="billing-state">State</Label>
-                          <Input
-                            id="billing-state"
-                            placeholder="State"
-                          />
-                        </div>
-                        <div className="space-y-2">
-                          <Label htmlFor="billing-zip">ZIP</Label>
-                          <Input
-                            id="billing-zip"
-                            placeholder="ZIP Code"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter className="flex justify-end border-t pt-6">
-                  <Button onClick={() => toast.success('Billing information saved')}>
-                    Save Billing Information
-                  </Button>
-                </CardFooter>
               </Card>
             </TabsContent>
           </Tabs>

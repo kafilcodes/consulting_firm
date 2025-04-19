@@ -4,9 +4,10 @@ import {
   setPersistence,
   browserLocalPersistence,
   GoogleAuthProvider,
-  signOut as firebaseSignOut
+  signOut as firebaseSignOut,
+  updateProfile as updateFirebaseProfile
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { 
   auth, 
   db, 
@@ -115,6 +116,68 @@ export const signOut = createAsyncThunk(
   }
 );
 
+// Async thunk to update user profile
+export const updateUserProfile = createAsyncThunk(
+  'auth/updateUserProfile',
+  async (userData: Partial<User> & { uid: string }, { getState, rejectWithValue }) => {
+    try {
+      const { uid, ...updateData } = userData;
+      
+      // Reference to user document in Firestore
+      const userDocRef = doc(db, 'users', uid);
+      
+      // Update Firestore user document
+      await updateDoc(userDocRef, {
+        ...updateData,
+        updatedAt: serverTimestamp()
+      });
+      
+      // If photoURL is being updated, update Auth profile as well
+      if (auth.currentUser && ('photoURL' in updateData || 'displayName' in updateData)) {
+        const profileUpdateData: { photoURL?: string | null, displayName?: string | null } = {};
+        
+        if ('photoURL' in updateData) {
+          profileUpdateData.photoURL = updateData.photoURL || null;
+        }
+        
+        if ('displayName' in updateData) {
+          profileUpdateData.displayName = updateData.displayName || null;
+        }
+        
+        await updateFirebaseProfile(auth.currentUser, profileUpdateData);
+      }
+      
+      // Get updated user data from Firestore
+      const updatedUserDoc = await getDoc(userDocRef);
+      const updatedUserData = updatedUserDoc.data();
+      
+      if (!updatedUserData) {
+        throw new Error('Failed to retrieve updated user data');
+      }
+      
+      // Build complete user object
+      const updatedUser: User = {
+        uid,
+        email: updatedUserData.email || null,
+        displayName: updatedUserData.displayName || null,
+        photoURL: updatedUserData.photoURL || null,
+        role: updatedUserData.role || 'client',
+        createdAt: formatDate(updatedUserData.createdAt),
+        lastSignInTime: formatDate(updatedUserData.lastSignInTime),
+        updatedAt: formatDate(updatedUserData.updatedAt),
+        phoneNumber: updatedUserData.phoneNumber || null,
+        company: updatedUserData.company || null,
+        address: updatedUserData.address || null,
+      };
+      
+      return updatedUser;
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      return rejectWithValue(error.message || 'Failed to update profile');
+    }
+  }
+);
+
 // Create the auth slice
 const authSlice = createSlice({
   name: 'auth',
@@ -141,6 +204,12 @@ const authSlice = createSlice({
     // Clear any errors
     clearError: (state) => {
       state.error = null;
+    },
+    // Update current user data (for use when profile is updated externally)
+    updateCurrentUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     },
   },
   extraReducers: (builder) => {
@@ -177,9 +246,25 @@ const authSlice = createSlice({
         state.isLoading = false;
         state.error = action.payload as string;
         toast.error(action.payload as string || 'Sign out failed');
+      })
+      
+      // Update User Profile
+      .addCase(updateUserProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.isLoading = false;
+        state.error = null;
+      })
+      .addCase(updateUserProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+        toast.error(action.payload as string || 'Profile update failed');
       });
   },
 });
 
-export const { setUser, initializeAuth, setError, clearError } = authSlice.actions;
+export const { setUser, initializeAuth, setError, clearError, updateCurrentUser } = authSlice.actions;
 export default authSlice.reducer; 

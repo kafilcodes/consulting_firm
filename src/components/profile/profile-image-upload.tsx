@@ -1,18 +1,31 @@
 'use client';
 
-import { useState, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, X, User } from 'lucide-react';
-import { toast } from 'react-hot-toast';
-import { uploadProfileImage } from '@/lib/firebase/storage';
-import { useAuth } from '@/contexts/auth-context';
+import { useState, useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { Camera, Trash2, Upload, X, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import Image from 'next/image';
+import { Button } from '@/components/ui/button';
+import { useAppSelector, useAppDispatch } from '@/store/hooks';
+import { updateUserProfile } from '@/store/slices/authSlice';
+import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 
 export function ProfileImageUpload() {
-  const { user, updateProfile } = useAuth();
+  const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
+  const [image, setImage] = useState<string | null>(user?.photoURL || null);
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [preview, setPreview] = useState<string | null>(user?.photoURL || null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const storage = getStorage();
+  
+  // Update image when user profile changes
+  useEffect(() => {
+    if (user?.photoURL) {
+      setImage(user.photoURL);
+    }
+  }, [user?.photoURL]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -26,120 +39,215 @@ export function ProfileImageUpload() {
   const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) {
-      await handleImageUpload(file);
+    
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length > 0) {
+      await handleImageUpload(files[0]);
     }
   };
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      await handleImageUpload(file);
+    if (e.target.files?.length) {
+      await handleImageUpload(e.target.files[0]);
+      
+      // Clear the input value so the same file can be uploaded again if needed
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
   const handleImageUpload = async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
+    if (!user?.uid) {
+      toast.error('You must be logged in to upload a profile image');
       return;
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size should be less than 5MB');
+    
+    // Validate file type
+    if (!file.type.includes('image')) {
+      toast.error('Please select an image file');
       return;
     }
-
+    
+    // Validate file size (limit to 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      toast.error('Image size exceeds 2MB limit');
+      return;
+    }
+    
+    setIsUploading(true);
+    setUploadProgress(0);
+    
     try {
-      setIsLoading(true);
-      const downloadURL = await uploadProfileImage(user!.id, file);
-      await updateProfile({ photoURL: downloadURL });
-      setPreview(downloadURL);
-      toast.success('Profile image updated successfully');
+      // Create a unique filename
+      const fileExtension = file.name.split('.').pop();
+      const fileName = `profile-${Date.now()}.${fileExtension}`;
+      const filePath = `users/${user.uid}/profile/${fileName}`;
+      const storageRef = ref(storage, filePath);
+      
+      // Upload with progress tracking
+      const uploadTask = uploadBytesResumable(storageRef, file);
+      
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          // Track upload progress
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.error('Error uploading image:', error);
+          toast.error('Failed to upload image');
+          setIsUploading(false);
+        },
+        async () => {
+          try {
+            // Get download URL once upload completes
+            const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+            
+            // Update user profile in Firebase and Redux store
+            await dispatch(updateUserProfile({
+              uid: user.uid,
+              photoURL: downloadURL
+            })).unwrap();
+            
+            // Update local state
+            setImage(downloadURL);
+            toast.success('Profile image updated successfully');
+          } catch (error) {
+            console.error('Error updating profile:', error);
+            toast.error('Failed to update profile image');
+          } finally {
+            setIsUploading(false);
+          }
+        }
+      );
     } catch (error) {
-      console.error('Error uploading image:', error);
-      toast.error('Failed to upload image');
-    } finally {
-      setIsLoading(false);
+      console.error('Error handling image upload:', error);
+      toast.error('Failed to process image');
+      setIsUploading(false);
     }
   };
 
   const handleRemoveImage = async () => {
+    if (!user?.uid || !user.photoURL) return;
+    
     try {
-      setIsLoading(true);
-      await updateProfile({ photoURL: null });
-      setPreview(null);
+      setIsUploading(true);
+      
+      // If the photoURL contains the storage path, delete the file from Storage
+      if (user.photoURL.includes('firebase') && user.photoURL.includes('/o/users')) {
+        // Extract file path from URL
+        const filePathMatch = user.photoURL.match(/o\/(.+?)(\?|$)/);
+        if (filePathMatch && filePathMatch[1]) {
+          const filePath = decodeURIComponent(filePathMatch[1]);
+          const storageRef = ref(storage, filePath);
+          
+          try {
+            await deleteObject(storageRef);
+          } catch (error) {
+            // If the file doesn't exist, continue anyway
+            console.warn('File not found in storage:', error);
+          }
+        }
+      }
+      
+      // Update user profile in Firebase and Redux store
+      await dispatch(updateUserProfile({
+        uid: user.uid,
+        photoURL: null
+      })).unwrap();
+      
+      // Update local state
+      setImage(null);
       toast.success('Profile image removed');
     } catch (error) {
-      console.error('Error removing image:', error);
-      toast.error('Failed to remove image');
+      console.error('Error removing profile image:', error);
+      toast.error('Failed to remove profile image');
     } finally {
-      setIsLoading(false);
+      setIsUploading(false);
     }
   };
 
   return (
-    <div className="flex flex-col items-center space-y-4">
-      <motion.div
-        className={`relative w-32 h-32 rounded-full overflow-hidden border-2 ${
-          isDragging ? 'border-blue-500' : 'border-gray-200'
-        }`}
-        animate={{ scale: isDragging ? 1.05 : 1 }}
-        transition={{ duration: 0.2 }}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        {preview ? (
-          <img
-            src={preview}
-            alt="Profile"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-            <User className="w-12 h-12 text-gray-400" />
-          </div>
-        )}
-
-        <AnimatePresence>
-          {isLoading && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+    <div className="space-y-4">
+      {/* Profile Image Display or Upload Area */}
+      {image ? (
+        <div className="flex flex-col items-center">
+          <div className="relative mb-4">
+            <div className="w-32 h-32 rounded-full overflow-hidden relative">
+              <Image 
+                src={image} 
+                alt="Profile" 
+                fill 
+                style={{ objectFit: 'cover' }}
+                className="rounded-full"
+              />
+            </div>
+            <Button
+              size="icon"
+              variant="destructive"
+              className="absolute bottom-0 right-0 h-8 w-8 rounded-full shadow-md"
+              onClick={handleRemoveImage}
+              disabled={isUploading}
             >
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white" />
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
-      <div className="flex space-x-2">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={isLoading}
-          className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              {isUploading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Trash2 className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              <Camera className="h-4 w-4 mr-2" />
+              Change Photo
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 transition-colors ${
+            isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+          }`}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
         >
-          <Upload className="h-4 w-4 mr-2" />
-          Upload
-        </button>
-
-        {preview && (
-          <button
-            type="button"
-            onClick={handleRemoveImage}
-            disabled={isLoading}
-            className="inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-red-600 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
-          >
-            <X className="h-4 w-4 mr-2" />
-            Remove
-          </button>
-        )}
-      </div>
-
+          <div className="flex flex-col items-center justify-center text-center">
+            <Upload className="h-10 w-10 text-gray-400 mb-2" />
+            <h3 className="text-lg font-medium text-gray-900 mb-1">
+              {isDragging ? 'Drop image here' : 'Upload a profile picture'}
+            </h3>
+            <p className="text-sm text-gray-500 mb-4">
+              Drag and drop or click to select
+            </p>
+            <Button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Uploading...
+                </>
+              ) : (
+                'Select Image'
+              )}
+            </Button>
+            <p className="text-xs text-gray-500 mt-2">
+              PNG, JPG or GIF • Max 2MB
+            </p>
+          </div>
+        </div>
+      )}
+      
+      {/* File Input (hidden) */}
       <input
         ref={fileInputRef}
         type="file"
@@ -147,12 +255,25 @@ export function ProfileImageUpload() {
         onChange={handleFileSelect}
         className="hidden"
       />
-
-      <p className="text-sm text-gray-500 text-center">
-        Drag and drop an image or click to upload
-        <br />
-        (Max size: 5MB)
-      </p>
+      
+      {/* Upload Progress */}
+      {isUploading && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4"
+        >
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div 
+              className="bg-primary h-2.5 rounded-full transition-all duration-300"
+              style={{ width: `${uploadProgress}%` }}
+            ></div>
+          </div>
+          <p className="text-xs text-center mt-1 text-gray-500">
+            Uploading... {uploadProgress}%
+          </p>
+        </motion.div>
+      )}
     </div>
   );
 } 

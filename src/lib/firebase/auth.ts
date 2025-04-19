@@ -419,7 +419,7 @@ export const serializeUser = async (firebaseUser: any): Promise<any> => {
 };
 
 /**
- * Updates auth cookies via API call
+ * Updates authentication cookies on the server-side
  */
 export const updateAuthCookies = async (token: string | null, role: string | null): Promise<void> => {
   try {
@@ -433,11 +433,16 @@ export const updateAuthCookies = async (token: string | null, role: string | nul
     });
     
     if (!response.ok) {
-      throw new Error('Failed to update auth cookies');
+      const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
+      console.error('Server returned error:', response.status, errorData);
+      throw new Error(`Failed to update auth cookies: ${response.status} ${errorData.message || ''}`);
     }
     
     console.log('Auth cookies updated successfully');
   } catch (error) {
     console.error('Error updating auth cookies:', error);
+    // We'll let this error pass through without throwing
+    // This prevents authentication failures from blocking the app from loading
+    // The user might need to log in again, but the app will still function
   }
 }; 

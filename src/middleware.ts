@@ -97,7 +97,7 @@ export async function middleware(request: NextRequest) {
     if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     } else if (userRole === 'client') {
-      return NextResponse.redirect(new URL('/client/dashboard', request.url));
+      return NextResponse.redirect(new URL('/client', request.url));
     } else if (userRole === 'consultant' || userRole === 'employee') {
       return NextResponse.redirect(new URL('/consultant/dashboard', request.url));
     }

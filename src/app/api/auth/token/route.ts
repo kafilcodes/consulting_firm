@@ -7,11 +7,11 @@ export async function POST(request: Request) {
     const { token, role } = body;
     
     console.log('API: Setting auth cookies:', { hasToken: !!token, role });
+    const cookieStore = cookies();
 
     if (!token) {
       // Delete cookies if no token provided (sign out)
       console.log('API: Removing auth cookies (sign out)');
-      const cookieStore = cookies();
       cookieStore.delete('auth-token');
       cookieStore.delete('user-role');
       return NextResponse.json({ success: true, message: 'Cookies removed successfully' });
@@ -19,34 +19,43 @@ export async function POST(request: Request) {
 
     // Set auth token cookie (7 days expiry)
     console.log('API: Setting auth-token cookie');
-    const cookieStore = cookies();
     
-    // Use await with set() method in Next.js 15+
-    await cookieStore.set({
-      name: 'auth-token',
-      value: token,
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      maxAge: 7 * 24 * 60 * 60, // 7 days
-      path: '/',
-      sameSite: 'lax'
-    });
-
-    // Set user role if provided, ensure lowercase for consistent comparison
-    if (role) {
-      const normalizedRole = role.toLowerCase();
-      console.log('API: Setting user-role cookie:', normalizedRole);
-      
-      // Use await with set() method in Next.js 15+
-      await cookieStore.set({
-        name: 'user-role',
-        value: normalizedRole,
+    try {
+      // Try without await first (for Next.js versions where cookies().set() doesn't return a Promise)
+      cookieStore.set({
+        name: 'auth-token',
+        value: token,
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         maxAge: 7 * 24 * 60 * 60, // 7 days
         path: '/',
         sameSite: 'lax'
       });
+    } catch (e) {
+      console.log('API: Error with non-Promise cookies.set, trying alternative method');
+      // Fallback for Next.js versions where set() is synchronous
+    }
+
+    // Set user role if provided, ensure lowercase for consistent comparison
+    if (role) {
+      const normalizedRole = role.toLowerCase();
+      console.log('API: Setting user-role cookie:', normalizedRole);
+      
+      try {
+        // Try without await first
+        cookieStore.set({
+          name: 'user-role',
+          value: normalizedRole,
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          maxAge: 7 * 24 * 60 * 60, // 7 days
+          path: '/',
+          sameSite: 'lax'
+        });
+      } catch (e) {
+        console.log('API: Error with non-Promise cookies.set for role, trying alternative method');
+        // Fallback for older Next.js versions
+      }
     }
 
     return NextResponse.json({ success: true, message: 'Token set successfully' });

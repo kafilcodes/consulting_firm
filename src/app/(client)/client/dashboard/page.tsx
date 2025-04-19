@@ -5,7 +5,6 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
-  ShoppingCart, 
   FileText, 
   User, 
   PieChart, 
@@ -13,14 +12,20 @@ import {
   ShoppingBag, 
   Bell, 
   ChevronRight,
-  Clock
+  Clock,
+  ExternalLink,
+  Loader2,
+  AlertCircle
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
 import { useAppSelector } from '@/store/hooks';
-import { UserRole } from '@/types';
-import { useCartStore } from '@/stores/cart-store';
+import { getClientOrders, getServices } from '@/lib/firebase/services';
+import { UserRole, Order, Service } from '@/types';
+import { toast } from 'sonner';
 
 // Animation variants
 const containerVariants = {
@@ -46,103 +51,43 @@ const itemVariants = {
   }
 };
 
-// Mock data for recent orders
-const recentOrders = [
-  {
-    id: 'ORD-123456',
-    serviceName: 'Business Consultation',
-    date: '2023-11-10',
-    status: 'Completed',
-    amount: 299.99
-  },
-  {
-    id: 'ORD-789012',
-    serviceName: 'Market Analysis',
-    date: '2023-11-05',
-    status: 'In Progress',
-    amount: 499.99
-  },
-  {
-    id: 'ORD-345678',
-    serviceName: 'Financial Planning',
-    date: '2023-10-30',
-    status: 'Completed',
-    amount: 349.99
-  }
-];
-
-// Mock data for upcoming appointments
-const upcomingAppointments = [
-  {
-    id: 'APT-123456',
-    title: 'Business Strategy Review',
-    consultant: 'John Smith',
-    date: '2023-11-15',
-    time: '10:00 AM'
-  },
-  {
-    id: 'APT-789012',
-    title: 'Quarterly Financial Check-in',
-    consultant: 'Emma Johnson',
-    date: '2023-11-20',
-    time: '02:30 PM'
-  }
-];
-
-// Mock data for recommended services - updated to match Service type
-const recommendedServices = [
-  {
-    id: 'SRV-1',
-    name: 'Strategic Business Planning',
-    description: 'Long-term business strategy development',
-    price: 799.99,
-    categoryId: 'consulting',
-    features: [
-      { id: 'f1', name: 'Business analysis' },
-      { id: 'f2', name: 'Strategic roadmap' }
-    ],
-    imageUrl: '/images/services/strategic-planning.jpg'
-  },
-  {
-    id: 'SRV-2',
-    name: 'Tax Optimization',
-    description: 'Minimize tax liability while ensuring compliance',
-    price: 499.99,
-    categoryId: 'tax',
-    features: [
-      { id: 'f1', name: 'Tax assessment' },
-      { id: 'f2', name: 'Compliance review' }
-    ],
-    imageUrl: '/images/services/tax-optimization.jpg'
-  },
-  {
-    id: 'SRV-3',
-    name: 'Market Expansion Strategy',
-    description: 'Analyze and plan market growth opportunities',
-    price: 649.99,
-    categoryId: 'consulting',
-    features: [
-      { id: 'f1', name: 'Market analysis' },
-      { id: 'f2', name: 'Expansion planning' }
-    ],
-    imageUrl: '/images/services/market-expansion.jpg'
-  }
-];
-
 export default function ClientDashboard() {
   const router = useRouter();
   const { user } = useAppSelector((state) => state.auth);
   const [isLoading, setIsLoading] = useState(true);
-  const { items, addItem } = useCartStore();
+  const [error, setError] = useState<string | null>(null);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [recommendedServices, setRecommendedServices] = useState<Service[]>([]);
   
-  // Simulate loading state
+  // Fetch client data on component mount
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 800);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    async function fetchClientData() {
+      if (!user?.uid) return;
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        // Fetch recent orders
+        const orders = await getClientOrders(user.uid);
+        setRecentOrders(orders.slice(0, 3)); // Only show 3 most recent orders
+        
+        // Fetch recommended services
+        const allServices = await getServices();
+        // Filter or sort services based on client's profile or previous orders
+        // For now, just show some random services as recommendations
+        setRecommendedServices(allServices.slice(0, 3));
+      } catch (err) {
+        console.error('Error fetching client data:', err);
+        setError('Failed to load dashboard data. Please try again later.');
+        toast.error('Error loading dashboard data');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+
+    fetchClientData();
+  }, [user?.uid]);
 
   // Redirect if not logged in or not a client
   useEffect(() => {
@@ -156,19 +101,65 @@ export default function ClientDashboard() {
     }
   }, [user, router]);
 
+  // Format date for display
+  const formatDate = (dateString: string | Date) => {
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('en-US', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(date);
+  };
+
+  // Status badge styling
+  const getStatusBadgeClass = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'in-progress':
+        return 'bg-blue-100 text-blue-800';
+      case 'completed':
+        return 'bg-green-100 text-green-800';
+      case 'cancelled':
+        return 'bg-red-100 text-red-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
+
   // If still checking auth or loading data
   if (isLoading || !user) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary mb-4" />
+          <p className="text-gray-600">Loading your dashboard...</p>
+        </div>
       </div>
     );
   }
 
-  // Updated to match CartStore expectations
-  const handleAddToCart = (service: any) => {
-    addItem(service);
-  };
+  // Display error state
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-10">
+        <div className="rounded-lg bg-red-50 p-6 flex items-center space-x-4">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <div>
+            <h3 className="text-lg font-medium text-red-800">Error Loading Dashboard</h3>
+            <p className="text-red-700 mt-1">{error}</p>
+            <Button 
+              variant="outline" 
+              className="mt-4"
+              onClick={() => window.location.reload()}
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -190,7 +181,7 @@ export default function ClientDashboard() {
 
         {/* Quick Stats */}
         <motion.div variants={itemVariants}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
             <Card>
               <CardContent className="flex flex-row items-center p-6">
                 <div className="p-2 bg-primary/10 rounded-full mr-4">
@@ -198,7 +189,9 @@ export default function ClientDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Active Orders</p>
-                  <h3 className="text-2xl font-bold">{recentOrders.filter(o => o.status === 'In Progress').length}</h3>
+                  <h3 className="text-2xl font-bold">
+                    {recentOrders.filter(o => o.status === 'pending' || o.status === 'in-progress').length}
+                  </h3>
                 </div>
               </CardContent>
             </Card>
@@ -210,7 +203,7 @@ export default function ClientDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Upcoming Meetings</p>
-                  <h3 className="text-2xl font-bold">{upcomingAppointments.length}</h3>
+                  <h3 className="text-2xl font-bold">0</h3>
                 </div>
               </CardContent>
             </Card>
@@ -222,19 +215,7 @@ export default function ClientDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Documents</p>
-                  <h3 className="text-2xl font-bold">12</h3>
-                </div>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardContent className="flex flex-row items-center p-6">
-                <div className="p-2 bg-primary/10 rounded-full mr-4">
-                  <ShoppingCart className="h-6 w-6 text-primary" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">Cart Items</p>
-                  <h3 className="text-2xl font-bold">{items.length}</h3>
+                  <h3 className="text-2xl font-bold">-</h3>
                 </div>
               </CardContent>
             </Card>
@@ -255,35 +236,52 @@ export default function ClientDashboard() {
                 <CardDescription>Your recent service orders and their status</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recentOrders.map((order) => (
-                    <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center">
-                        <div className={`w-2 h-2 rounded-full mr-3 ${
-                          order.status === 'Completed' ? 'bg-green-500' : 
-                          order.status === 'In Progress' ? 'bg-blue-500' : 'bg-yellow-500'
-                        }`}></div>
-                        <div>
-                          <h4 className="font-medium">{order.serviceName}</h4>
-                          <div className="flex text-xs text-muted-foreground">
-                            <span>{order.id}</span>
-                            <span className="mx-2">•</span>
-                            <span>{order.date}</span>
+                {recentOrders.length > 0 ? (
+                  <div className="space-y-4">
+                    {recentOrders.map((order) => (
+                      <div key={order.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                        <div className="flex items-center">
+                          <div className={`w-2 h-2 rounded-full mr-3 ${
+                            order.status === 'completed' ? 'bg-green-500' : 
+                            order.status === 'in-progress' ? 'bg-blue-500' : 'bg-yellow-500'
+                          }`}></div>
+                          <div>
+                            <h4 className="font-medium">Order #{order.id.slice(-6)}</h4>
+                            <div className="flex text-xs text-muted-foreground">
+                              <span>Created on {formatDate(order.createdAt)}</span>
+                            </div>
                           </div>
                         </div>
+                        <div className="text-right">
+                          <Badge 
+                            variant="outline"
+                            className={`capitalize ${getStatusBadgeClass(order.status)}`}
+                          >
+                            {order.status}
+                          </Badge>
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="ml-2"
+                            asChild
+                          >
+                            <Link href={`/client/orders/${order.id}`}>
+                              <ChevronRight className="h-4 w-4" />
+                            </Link>
+                          </Button>
+                        </div>
                       </div>
-                      <div className="text-right">
-                        <div className="font-medium">${order.amount.toFixed(2)}</div>
-                        <span className={`text-xs px-2 py-1 rounded-full ${
-                          order.status === 'Completed' ? 'bg-green-100 text-green-800' : 
-                          order.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-6">
+                    <Clock className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500">No orders yet</p>
+                    <Button variant="link" asChild className="mt-2">
+                      <Link href="/client/services">Browse Services</Link>
+                    </Button>
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="justify-end">
                 <Button variant="ghost" asChild>
@@ -304,26 +302,12 @@ export default function ClientDashboard() {
                 <CardDescription>Your scheduled meetings with consultants</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {upcomingAppointments.map((appointment) => (
-                    <div key={appointment.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex items-center">
-                        <div className="p-2 bg-primary/10 rounded-full mr-3">
-                          <Clock className="h-4 w-4 text-primary" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium">{appointment.title}</h4>
-                          <div className="text-xs text-muted-foreground">
-                            <span>With {appointment.consultant}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-medium">{appointment.date}</div>
-                        <span className="text-xs text-muted-foreground">{appointment.time}</span>
-                      </div>
-                    </div>
-                  ))}
+                <div className="text-center py-6">
+                  <Clock className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                  <p className="text-gray-500">No upcoming appointments</p>
+                  <Button variant="link" asChild className="mt-2">
+                    <Link href="/client/services">Schedule a Consultation</Link>
+                  </Button>
                 </div>
               </CardContent>
               <CardFooter className="justify-end">
@@ -352,12 +336,6 @@ export default function ClientDashboard() {
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link href="/client/cart">
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    View Cart
-                  </Link>
-                </Button>
-                <Button variant="outline" className="w-full justify-start" asChild>
                   <Link href="/client/documents">
                     <FileText className="mr-2 h-4 w-4" />
                     Manage Documents
@@ -382,24 +360,35 @@ export default function ClientDashboard() {
                 <CardDescription>Services you might be interested in</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
-                  {recommendedServices.map((service) => (
-                    <div key={service.id} className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
-                      <div className="flex justify-between items-start mb-2">
-                        <h4 className="font-medium">{service.name}</h4>
-                        <div className="font-medium">${service.price.toFixed(2)}</div>
+                {recommendedServices.length > 0 ? (
+                  <div className="space-y-4">
+                    {recommendedServices.map((service) => (
+                      <div key={service.id} className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
+                        <div className="flex justify-between items-start mb-2">
+                          <h4 className="font-medium">{service.name}</h4>
+                          <div className="font-medium">₹{service.price.amount.toLocaleString()}</div>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          {service.shortDescription}
+                        </p>
+                        <Button 
+                          size="sm" 
+                          variant="outline"
+                          className="w-full"
+                          asChild
+                        >
+                          <Link href={`/client/services/${service.id}`}>
+                            View Details <ExternalLink className="ml-2 h-3 w-3" />
+                          </Link>
+                        </Button>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
-                      <Button 
-                        size="sm" 
-                        onClick={() => handleAddToCart(service)}
-                        className="w-full"
-                      >
-                        Add to Cart
-                      </Button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 text-sm">No recommendations yet</p>
+                  </div>
+                )}
               </CardContent>
               <CardFooter className="justify-end">
                 <Button variant="ghost" asChild>
@@ -419,15 +408,9 @@ export default function ClientDashboard() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <div className="p-3 rounded-lg bg-primary/5 border border-primary/10">
-                    <p className="text-sm font-medium">Your Quarterly Financial Review is due</p>
-                    <p className="text-xs text-muted-foreground mt-1">2 days ago</p>
-                  </div>
-                  <div className="p-3 rounded-lg bg-accent/50">
-                    <p className="text-sm font-medium">New tax planning services available</p>
-                    <p className="text-xs text-muted-foreground mt-1">1 week ago</p>
-                  </div>
+                <div className="text-center py-4">
+                  <Bell className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                  <p className="text-gray-500 text-sm">No notifications</p>
                 </div>
               </CardContent>
               <CardFooter className="justify-end">
