@@ -1,10 +1,19 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import type { CartItem } from '@/stores/cart-store';
+
+// Define our own types without relying on cart-store
+interface OrderItem {
+  id: string;
+  name: string;
+  price: number;
+  quantity: number;
+  currency?: string;
+  description?: string;
+}
 
 interface OrderSummaryProps {
-  items: CartItem[];
+  items: OrderItem[];
   total: {
     subtotal: number;
     tax: number;

@@ -1,71 +1,250 @@
 'use client';
 
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { useCartStore } from '@/stores/cart-store';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CheckoutForm } from '@/components/client/checkout-form';
-import { OrderSummary } from '@/components/client/order-summary';
+import { useToast } from '@/components/ui/use-toast';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 
-function CheckoutContent() {
+// Animation variants
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1
+    }
+  }
+};
+
+const itemVariants = {
+  hidden: { y: 20, opacity: 0 },
+  visible: {
+    y: 0,
+    opacity: 1,
+    transition: { 
+      type: "spring", 
+      stiffness: 100,
+      damping: 10
+    }
+  }
+};
+
+// Mock services data for direct checkout
+const serviceMockData = [
+  {
+    id: "1",
+    name: "Business Strategy Consultation",
+    description: "Comprehensive business strategy consultation to help your company define clear objectives and develop actionable plans for growth.",
+    price: 1499.99,
+    imageUrl: "/assets/images/services/strategy.jpg",
+  },
+  {
+    id: "2",
+    name: "Financial Health Assessment",
+    description: "Detailed evaluation of your company's financial status with recommendations for improvement.",
+    price: 799.99,
+    imageUrl: "/assets/images/services/finance.jpg",
+  },
+  {
+    id: "3",
+    name: "Tax Optimization Strategy",
+    description: "Comprehensive tax planning to minimize liabilities while ensuring full compliance.",
+    price: 599.99,
+    imageUrl: "/assets/images/services/tax.jpg",
+  }
+];
+
+export default function CheckoutPage() {
   const searchParams = useSearchParams();
-  const orderId = searchParams.get('orderId');
-  const items = useCartStore((state) => state.items);
-  const getTotal = useCartStore((state) => state.getTotal);
+  const router = useRouter();
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [service, setService] = useState<any>(null);
+  const [subtotal, setSubtotal] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
+  const [paymentMethod, setPaymentMethod] = useState('razorpay'); // Default to Razorpay
 
-  if (!items.length && !orderId) {
+  useEffect(() => {
+    const fetchServiceData = async () => {
+      const serviceId = searchParams.get('serviceId');
+      if (!serviceId) {
+        toast({
+          title: "Error",
+          description: "No service selected for checkout",
+          variant: "destructive"
+        });
+        router.push('/client/services');
+        return;
+      }
+
+      try {
+        // Try to fetch from Firestore first
+        const serviceDocRef = doc(db, "services", serviceId);
+        const serviceDoc = await getDoc(serviceDocRef);
+        
+        if (serviceDoc.exists()) {
+          const serviceData = serviceDoc.data();
+          setService({
+            id: serviceDoc.id,
+            ...serviceData
+          });
+          
+          // Calculate totals
+          const servicePrice = serviceData.price || 0;
+          const calculatedTax = servicePrice * 0.18; // 18% GST
+          
+          setSubtotal(servicePrice);
+          setTax(calculatedTax);
+          setTotal(servicePrice + calculatedTax);
+        } else {
+          // Fallback to mock data
+          const mockService = serviceMockData.find(s => s.id === serviceId);
+          if (mockService) {
+            setService(mockService);
+            
+            // Calculate totals
+            const servicePrice = mockService.price || 0;
+            const calculatedTax = servicePrice * 0.18; // 18% GST
+            
+            setSubtotal(servicePrice);
+            setTax(calculatedTax);
+            setTotal(servicePrice + calculatedTax);
+          } else {
+            throw new Error("Service not found");
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching service:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load service details",
+          variant: "destructive"
+        });
+        router.push('/client/services');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServiceData();
+  }, [searchParams, router, toast]);
+
+  if (loading) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-2xl font-semibold text-gray-900">Your cart is empty</h2>
-        <p className="mt-2 text-gray-500">Add some services to your cart to proceed with checkout.</p>
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-muted-foreground">Loading checkout...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!service) {
+    return (
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <h2 className="text-2xl font-bold">No service selected</h2>
+          <p className="text-muted-foreground">Please select a service to proceed with checkout</p>
+          <Button asChild>
+            <Link href="/client/services">Browse Services</Link>
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start xl:gap-x-16">
-      <div className="lg:col-span-7">
-        <CheckoutForm orderId={orderId} />
-      </div>
-      <div className="mt-10 lg:mt-0 lg:col-span-5">
-        <OrderSummary items={items} total={getTotal()} />
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        variants={containerVariants}
+        className="space-y-8"
+      >
+        {/* Back Button */}
+        <motion.div variants={itemVariants}>
+          <Link href="/client/services" className="inline-flex items-center text-sm text-muted-foreground hover:text-primary transition-colors">
+            <ArrowLeft className="mr-1 h-4 w-4" />
+            Back to Services
+          </Link>
+        </motion.div>
+
+        <motion.h1 variants={itemVariants} className="text-3xl font-bold">
+          Checkout
+        </motion.h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Checkout Form */}
+          <motion.div variants={itemVariants} className="lg:col-span-2">
+            <Card className="p-6">
+              <h2 className="text-xl font-semibold mb-6">Complete Your Order</h2>
+              
+              <CheckoutForm 
+                service={service}
+                total={{
+                  subtotal: subtotal,
+                  tax: tax,
+                  total: total
+                }}
+              />
+            </Card>
+          </motion.div>
+
+          {/* Order Summary */}
+          <motion.div variants={itemVariants} className="lg:col-span-1">
+            <Card className="p-6 sticky top-24">
+              <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
+              
+              <div className="space-y-4">
+                <div className="bg-accent/20 p-4 rounded-lg">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <h3 className="font-medium">{service.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{service.description}</p>
+                    </div>
+                    <p className="font-medium">${service.price?.toFixed(2)}</p>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Subtotal</span>
+                    <span>${subtotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax (18% GST)</span>
+                    <span>${tax.toFixed(2)}</span>
+                  </div>
+                </div>
+                
+                <Separator />
+                
+                <div className="flex justify-between font-bold">
+                  <span>Total</span>
+                  <span>${total.toFixed(2)}</span>
+                </div>
+              </div>
+              
+              <div className="mt-6 text-sm text-muted-foreground">
+                <p>By completing this purchase, you agree to our Terms of Service and Privacy Policy.</p>
+              </div>
+            </Card>
+          </motion.div>
+        </div>
+      </motion.div>
     </div>
   );
 }
-
-export default function CheckoutPage() {
-  return (
-    <div className="bg-white">
-      <div className="max-w-7xl mx-auto px-4 pt-16 pb-24 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-          Checkout
-        </h1>
-        <Suspense
-          fallback={
-            <div className="mt-12 lg:grid lg:grid-cols-12 lg:gap-x-12 lg:items-start xl:gap-x-16">
-              <div className="lg:col-span-7">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-                  <div className="h-12 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-1/2"></div>
-                  <div className="h-12 bg-gray-200 rounded"></div>
-                </div>
-              </div>
-              <div className="mt-10 lg:mt-0 lg:col-span-5">
-                <div className="animate-pulse space-y-4">
-                  <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-                  <div className="h-24 bg-gray-200 rounded"></div>
-                  <div className="h-12 bg-gray-200 rounded"></div>
-                </div>
-              </div>
-            </div>
-          }
-        >
-          <div className="mt-12">
-            <CheckoutContent />
-          </div>
-        </Suspense>
-      </div>
-    </div>
-  );
-} 

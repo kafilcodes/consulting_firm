@@ -2,15 +2,15 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Search, Filter, ShoppingCart, CheckCircle } from 'lucide-react';
+import { Search, Filter, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useCartStore } from '@/stores/cart-store';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'react-hot-toast';
 
@@ -49,7 +49,7 @@ const categories = [
   'Legal Services'
 ];
 
-// Mock services data
+// Mock services data (should be moved to a central data store/API in production)
 const services = [
   {
     id: 'srv-001',
@@ -164,89 +164,69 @@ const services = [
 export default function ServicesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Services');
-  const [filteredServices, setFilteredServices] = useState(services);
-  const { items, addItem } = useCartStore();
-  
+  const router = useRouter();
+
   // Filter services based on search and category
-  useEffect(() => {
-    let filtered = services;
-    
-    // Filter by category
-    if (selectedCategory !== 'All Services') {
-      filtered = filtered.filter(service => service.category === selectedCategory);
-    }
-    
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(service => 
-        service.name.toLowerCase().includes(term) || 
-        service.description.toLowerCase().includes(term) ||
-        service.category.toLowerCase().includes(term)
-      );
-    }
-    
-    setFilteredServices(filtered);
-  }, [searchTerm, selectedCategory]);
-  
-  // Check if an item is already in the cart
-  const isInCart = (id: string) => {
-    return items.some(item => item.id === id);
+  const filteredServices = React.useMemo(() => {
+    return services.filter(service => {
+      // Category filter
+      if (selectedCategory !== 'All Services' && service.category !== selectedCategory) {
+        return false;
+      }
+      
+      // Search filter
+      if (searchTerm && !service.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [selectedCategory, searchTerm]);
+
+  // Handle direct ordering - navigate to checkout
+  const handleOrderService = (serviceId: string) => {
+    router.push(`/checkout?serviceId=${serviceId}`);
   };
-  
-  // Handle adding service to cart
-  const handleAddToCart = (service: any) => {
-    if (!isInCart(service.id)) {
-      addItem({
-        id: service.id,
-        name: service.name,
-        description: service.description,
-        price: service.price,
-        oldPrice: service.oldPrice,
-        imageUrl: service.imageUrl,
-        quantity: 1
-      });
-      toast.success(`${service.name} added to cart`);
-    } else {
-      toast.error('This service is already in your cart');
-    }
+
+  // Format currency
+  const formatCurrency = (price: number, oldPrice: number | null) => {
+    return (
+      <div className="mt-2">
+        <span className="text-lg font-semibold">${price.toFixed(2)}</span>
+        {oldPrice && (
+          <span className="ml-2 text-gray-400 line-through">${oldPrice.toFixed(2)}</span>
+        )}
+      </div>
+    );
   };
-  
+
   return (
     <div className="container mx-auto px-4 py-8">
       <motion.div
         initial="hidden"
         animate="visible"
         variants={containerVariants}
-        className="space-y-6"
+        className="space-y-8"
       >
-        {/* Page Header */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <h1 className="text-3xl font-bold">Professional Services</h1>
-          <p className="text-muted-foreground mt-2">
-            Browse our range of professional consulting services
-          </p>
-        </motion.div>
-        
-        {/* Search and Filter */}
-        <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-4 mb-8">
-          <div className="relative w-full sm:w-2/3">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={18} />
-            <Input
-              type="text"
-              placeholder="Search services..."
-              className="pl-10"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <div className="w-full sm:w-1/3">
+        {/* Header & controls */}
+        <motion.div variants={itemVariants}>
+          <h1 className="text-2xl md:text-3xl font-bold mb-6">Professional Services</h1>
+          
+          <div className="flex flex-col md:flex-row gap-4 mb-8">
+            <div className="relative flex-grow">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Input
+                placeholder="Search services..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            
             <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full">
-                <div className="flex items-center">
-                  <Filter className="mr-2 h-4 w-4 text-muted-foreground" />
-                  <SelectValue placeholder="All Categories" />
-                </div>
+              <SelectTrigger className="w-full md:w-[200px]">
+                <Filter className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((category) => (
@@ -259,23 +239,6 @@ export default function ServicesPage() {
           </div>
         </motion.div>
         
-        {/* Cart Info */}
-        <motion.div variants={itemVariants} className="mb-8">
-          <div className="bg-primary/5 rounded-lg p-4 flex justify-between items-center">
-            <div className="flex items-center">
-              <ShoppingCart className="h-5 w-5 text-primary mr-2" />
-              <span>{items.length} service{items.length !== 1 ? 's' : ''} in your cart</span>
-            </div>
-            {items.length > 0 && (
-              <Button size="sm" asChild>
-                <Link href="/cart">
-                  View Cart
-                </Link>
-              </Button>
-            )}
-          </div>
-        </motion.div>
-        
         {/* Services Grid */}
         {filteredServices.length > 0 ? (
           <motion.div
@@ -284,7 +247,7 @@ export default function ServicesPage() {
           >
             {filteredServices.map((service) => (
               <motion.div key={service.id} variants={itemVariants}>
-                <Card className="h-full flex flex-col overflow-hidden">
+                <Card className="h-full flex flex-col">
                   <div className="relative h-48">
                     <Image
                       src={service.imageUrl}
@@ -293,26 +256,12 @@ export default function ServicesPage() {
                       className="object-cover"
                     />
                     {service.popular && (
-                      <Badge className="absolute top-2 right-2 bg-primary text-white">
-                        Popular
-                      </Badge>
+                      <Badge className="absolute top-2 right-2 bg-primary text-white font-medium">Popular</Badge>
                     )}
                   </div>
                   <CardHeader>
-                    <CardTitle className="flex justify-between items-start">
-                      <span>{service.name}</span>
-                      {service.oldPrice ? (
-                        <div className="text-right">
-                          <span className="text-lg font-bold">${service.price.toFixed(2)}</span>
-                          <span className="block text-sm text-muted-foreground line-through">
-                            ${service.oldPrice.toFixed(2)}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-lg font-bold">${service.price.toFixed(2)}</span>
-                      )}
-                    </CardTitle>
-                    <CardDescription className="text-sm">{service.description}</CardDescription>
+                    <CardTitle>{service.name}</CardTitle>
+                    <CardDescription>{service.description}</CardDescription>
                   </CardHeader>
                   <CardContent className="grow">
                     <div className="space-y-2">
@@ -339,21 +288,9 @@ export default function ServicesPage() {
                     </Button>
                     <Button 
                       className="w-1/2"
-                      variant={isInCart(service.id) ? "secondary" : "default"}
-                      onClick={() => handleAddToCart(service)}
-                      disabled={isInCart(service.id)}
+                      onClick={() => handleOrderService(service.id)}
                     >
-                      {isInCart(service.id) ? (
-                        <div className="flex items-center">
-                          <CheckCircle className="h-4 w-4 mr-2" />
-                          In Cart
-                        </div>
-                      ) : (
-                        <div className="flex items-center">
-                          <ShoppingCart className="h-4 w-4 mr-2" />
-                          Add to Cart
-                        </div>
-                      )}
+                      Order Now
                     </Button>
                   </CardFooter>
                 </Card>
@@ -361,19 +298,15 @@ export default function ServicesPage() {
             ))}
           </motion.div>
         ) : (
-          <motion.div variants={itemVariants} className="text-center py-8">
-            <div className="bg-accent/30 rounded-lg p-8">
-              <h3 className="font-medium text-lg mb-2">No services found</h3>
-              <p className="text-muted-foreground mb-4">
-                We couldn't find any services matching your criteria.
-              </p>
-              <Button onClick={() => {
-                setSearchTerm('');
-                setSelectedCategory('All Services');
-              }}>
-                Clear Filters
-              </Button>
-            </div>
+          <motion.div variants={itemVariants} className="text-center py-12">
+            <p className="text-xl font-medium mb-2">No services found</p>
+            <p className="text-gray-500 mb-6">Try adjusting your search or filter criteria</p>
+            <Button onClick={() => {
+              setSearchTerm('');
+              setSelectedCategory('All Services');
+            }}>
+              Reset Filters
+            </Button>
           </motion.div>
         )}
       </motion.div>

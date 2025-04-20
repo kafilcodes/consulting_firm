@@ -7,8 +7,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { toast } from 'react-hot-toast';
 import { useAuth } from '@/contexts/auth-context';
-import { useCartStore } from '@/stores/cart-store';
-import { createOrder, updateOrderPayment } from '@/lib/firebase/services';
+import { createOrder, updateOrderPayment, getService } from '@/lib/firebase/services';
 import {
   loadRazorpayScript,
   initializeRazorpayCheckout,
@@ -33,14 +32,26 @@ type CheckoutFormData = z.infer<typeof checkoutSchema>;
 
 interface CheckoutFormProps {
   orderId?: string | null;
+  serviceId?: string | null;
+  service?: any;
+  total?: {
+    subtotal: number;
+    tax: number;
+    total: number;
+  };
 }
 
-export function CheckoutForm({ orderId }: CheckoutFormProps) {
+export function CheckoutForm({ orderId, serviceId, service, total }: CheckoutFormProps) {
   const router = useRouter();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const { items, getTotal, clearCart } = useCartStore();
-  const { total } = getTotal();
+  
+  // Calculate totals based on the service if not provided
+  const calculatedTotal = total || {
+    subtotal: service?.price || 0,
+    tax: (service?.price || 0) * 0.18, // 18% GST
+    total: (service?.price || 0) * 1.18, // Price + 18% GST
+  };
 
   const {
     register,
@@ -64,7 +75,21 @@ export function CheckoutForm({ orderId }: CheckoutFormProps) {
 
   const handleCheckout = async (data: CheckoutFormData) => {
     try {
+      if (!service && !serviceId) {
+        toast.error('No service selected for checkout');
+        return;
+      }
+      
       setIsLoading(true);
+
+      // Fetch service details if not provided
+      let serviceDetails = service;
+      if (!serviceDetails && serviceId) {
+        serviceDetails = await getService(serviceId);
+        if (!serviceDetails) {
+          throw new Error('Service not found');
+        }
+      }
 
       // Load Razorpay script
       const isLoaded = await loadRazorpayScript();
@@ -73,11 +98,11 @@ export function CheckoutForm({ orderId }: CheckoutFormProps) {
       }
 
       // Create order in Firebase
-      const orderId = await createOrder({
+      const newOrderId = await createOrder({
         clientId: user!.id,
-        serviceId: items[0].service.id, // For now, handling single service
+        serviceId: serviceDetails.id,
         status: 'pending',
-        amount: total,
+        amount: calculatedTotal.total,
         currency: 'INR',
         paymentStatus: 'pending',
         documents: [],
@@ -94,11 +119,11 @@ export function CheckoutForm({ orderId }: CheckoutFormProps) {
 
       // Initialize Razorpay payment
       const paymentOptions: PaymentOptions = {
-        amount: formatAmountForRazorpay(total),
+        amount: formatAmountForRazorpay(calculatedTotal.total),
         currency: 'INR',
-        orderId,
+        orderId: newOrderId,
         name: 'SKS Consulting',
-        description: `Payment for ${items.map(item => item.name).join(', ')}`,
+        description: `Payment for ${serviceDetails.name}`,
         image: '/logo.png',
         prefill: {
           name: data.name,
@@ -116,13 +141,12 @@ export function CheckoutForm({ orderId }: CheckoutFormProps) {
       // Handle successful payment
       if (response.razorpay_payment_id) {
         // Update order payment status
-        await updateOrderPayment(orderId, {
+        await updateOrderPayment(newOrderId, {
           paymentId: response.razorpay_payment_id,
           paymentStatus: 'paid',
           paymentResponse: response,
         });
 
-        clearCart();
         toast.success('Payment successful! Redirecting to orders...');
         router.push('/client/orders');
       }

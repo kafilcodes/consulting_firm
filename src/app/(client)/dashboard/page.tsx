@@ -20,7 +20,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppSelector } from '@/store/hooks';
 import { UserRole } from '@/types/auth';
-import { useCartStore } from '@/stores/cart-store';
 
 // Animation variants
 const containerVariants = {
@@ -118,7 +117,6 @@ export default function ClientDashboard() {
   const router = useRouter();
   const { user } = useAppSelector((state) => state.auth);
   const [isLoading, setIsLoading] = useState(true);
-  const { items, addItem } = useCartStore();
   
   // Simulate loading state
   useEffect(() => {
@@ -151,13 +149,7 @@ export default function ClientDashboard() {
   }
 
   const handleAddToCart = (service: any) => {
-    addItem({
-      id: service.id,
-      name: service.name,
-      description: service.description,
-      price: service.price,
-      imageUrl: service.imageUrl
-    });
+    router.push(`/client/checkout?serviceId=${service.id}`);
   };
 
   return (
@@ -224,7 +216,7 @@ export default function ClientDashboard() {
                 </div>
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Cart Items</p>
-                  <h3 className="text-2xl font-bold">{items.length}</h3>
+                  <h3 className="text-2xl font-bold">0</h3>
                 </div>
               </CardContent>
             </Card>

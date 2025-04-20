@@ -15,7 +15,7 @@ import {
   arrayUnion,
 } from 'firebase/firestore';
 import { db, storage } from './config';
-import type { Service, Order, OrderStatus, User, ServiceCategory, CartItem } from '@/types';
+import type { Service, Order, OrderStatus, User, ServiceCategory } from '@/types';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
 // Service functions

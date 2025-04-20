@@ -51,6 +51,11 @@ const itemVariants = {
   }
 };
 
+// Update the handleAddToCart function to be handleOrderService
+const handleOrderService = (service: any) => {
+  window.location.href = `/client/checkout?serviceId=${service.id}`;
+};
+
 export default function ClientDashboard() {
   const router = useRouter();
   const { user } = useAppSelector((state) => state.auth);
@@ -336,6 +341,12 @@ export default function ClientDashboard() {
                   </Link>
                 </Button>
                 <Button variant="outline" className="w-full justify-start" asChild>
+                  <Link href="/client/orders">
+                    <FileText className="mr-2 h-4 w-4" />
+                    View Orders
+                  </Link>
+                </Button>
+                <Button variant="outline" className="w-full justify-start" asChild>
                   <Link href="/client/documents">
                     <FileText className="mr-2 h-4 w-4" />
                     Manage Documents
@@ -366,20 +377,15 @@ export default function ClientDashboard() {
                       <div key={service.id} className="p-3 rounded-lg border border-border hover:bg-accent/50 transition-colors">
                         <div className="flex justify-between items-start mb-2">
                           <h4 className="font-medium">{service.name}</h4>
-                          <div className="font-medium">₹{service.price.amount.toLocaleString()}</div>
+                          <div className="font-medium">${service.price.toFixed(2)}</div>
                         </div>
-                        <p className="text-sm text-muted-foreground mb-3">
-                          {service.shortDescription}
-                        </p>
+                        <p className="text-sm text-muted-foreground mb-3">{service.description}</p>
                         <Button 
                           size="sm" 
-                          variant="outline"
+                          onClick={() => handleOrderService(service)}
                           className="w-full"
-                          asChild
                         >
-                          <Link href={`/client/services/${service.id}`}>
-                            View Details <ExternalLink className="ml-2 h-3 w-3" />
-                          </Link>
+                          Order Service
                         </Button>
                       </div>
                     ))}
