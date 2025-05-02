@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Upload, X, File, FileText, Trash2, FileArchive, Download, Loader2 } from 'lucide-react';
+import { Upload, X, File, FileText, Trash2, FileArchive, Download, Loader2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAppSelector } from '@/store/hooks';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { DocumentCategory } from '@/types';
 import { getStorage, ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
-import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, Timestamp } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, where, getDocs, deleteDoc, doc, Timestamp, orderBy, serverTimestamp, getDoc } from 'firebase/firestore';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -48,19 +48,69 @@ export function DocumentUpload() {
       
       try {
         setIsLoading(true);
-        const userDocsRef = collection(db, 'users', user.uid, 'documents');
-        const userDocsSnapshot = await getDocs(userDocsRef);
+        // Using users collection directly
+        const userDocsRef = collection(db, 'documents');
         
-        const docs: UserDocument[] = [];
-        userDocsSnapshot.forEach((doc) => {
-          const data = doc.data() as Omit<UserDocument, 'id'>;
-          docs.push({ id: doc.id, ...data });
-        });
-        
-        setDocuments(docs);
+        // First attempt with orderBy - this requires a composite index
+        try {
+          const q = query(
+            userDocsRef, 
+            where('userId', '==', user.uid), 
+            orderBy('uploadedAt', 'desc')
+          );
+          const userDocsSnapshot = await getDocs(q);
+          
+          const docs: UserDocument[] = [];
+          userDocsSnapshot.forEach((doc) => {
+            const data = doc.data() as Omit<UserDocument, 'id'>;
+            docs.push({ id: doc.id, ...data });
+          });
+          
+          setDocuments(docs);
+        } catch (indexError: any) {
+          // If we get a missing index error, fall back to simpler query without ordering
+          if (indexError.code === 'failed-precondition') {
+            console.warn('Index missing for ordered query. Using unordered query as fallback.');
+            console.error('Missing index details:', indexError.message);
+            
+            // Log out the error message which contains the link to create the index
+            if (indexError.message.includes('https://console.firebase.google.com')) {
+              const indexUrl = indexError.message.match(/(https:\/\/console\.firebase\.google\.com\S+)/);
+              if (indexUrl) {
+                console.info('Create the required index at:', indexUrl[0]);
+              }
+            }
+            
+            // Fallback query without ordering
+            const fallbackQuery = query(userDocsRef, where('userId', '==', user.uid));
+            const fallbackSnapshot = await getDocs(fallbackQuery);
+            
+            const fallbackDocs: UserDocument[] = [];
+            fallbackSnapshot.forEach((doc) => {
+              const data = doc.data() as Omit<UserDocument, 'id'>;
+              fallbackDocs.push({ id: doc.id, ...data });
+            });
+            
+            // Sort client-side as a fallback
+            fallbackDocs.sort((a, b) => {
+              const dateA = a.uploadedAt instanceof Timestamp ? 
+                a.uploadedAt.toMillis() : new Date(a.uploadedAt).getTime();
+              const dateB = b.uploadedAt instanceof Timestamp ? 
+                b.uploadedAt.toMillis() : new Date(b.uploadedAt).getTime();
+              return dateB - dateA; // Descending order
+            });
+            
+            setDocuments(fallbackDocs);
+          } else {
+            // For other errors, throw to be caught by outer catch block
+            throw indexError;
+          }
+        }
       } catch (error) {
-        console.error('Error fetching documents:', error);
-        toast.error('Failed to load your documents');
+        logError('fetchDocuments from Firestore', error);
+        toast.error("Loading failed", {
+          description: "Could not load your documents. Please try again."
+        });
       } finally {
         setIsLoading(false);
       }
@@ -77,7 +127,7 @@ export function DocumentUpload() {
     // Create a unique filename to prevent collisions
     const fileExtension = file.name.split('.').pop();
     const uniqueFileName = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}.${fileExtension}`;
-    const filePath = `users/${user.uid}/documents/${uniqueFileName}`;
+    const filePath = `documents/${user.uid}/${uniqueFileName}`;
     const storageRef = ref(storage, filePath);
     
     // Upload file with progress tracking
@@ -93,7 +143,7 @@ export function DocumentUpload() {
         },
         (error) => {
           // Handle upload errors
-          console.error('Upload error:', error);
+          logError('uploadBytes to Firebase Storage', error);
           reject(error);
         },
         async () => {
@@ -102,7 +152,7 @@ export function DocumentUpload() {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             
             // Store document metadata in Firestore
-            const docRef = collection(db, 'users', user.uid, 'documents');
+            const docRef = collection(db, 'documents');
             const newDoc = {
               name: file.name,
               size: file.size,
@@ -110,7 +160,8 @@ export function DocumentUpload() {
               category,
               url: downloadURL,
               path: filePath, // Store path for easy deletion
-              uploadedAt: Timestamp.now()
+              uploadedAt: Timestamp.now(),
+              userId: user.uid // Add user ID to the document
             };
             
             const docSnapshot = await addDoc(docRef, newDoc);
@@ -131,7 +182,7 @@ export function DocumentUpload() {
             
             resolve(userDoc);
           } catch (error) {
-            console.error('Error saving document metadata:', error);
+            logError('saving document metadata to Firestore', error);
             reject(error);
           }
         }
@@ -185,54 +236,164 @@ export function DocumentUpload() {
   };
 
   const handleFileUpload = async (file: File, category: DocumentCategory) => {
-    if (!user?.uid) {
-      toast.error('You must be logged in to upload documents');
+    // Check if user is logged in
+    if (!user) {
+      toast.error("Authentication required", {
+        description: "Please sign in to upload documents"
+      });
       return;
     }
 
-    // Validate file
-    if (file.size > 20 * 1024 * 1024) {
-      toast.error(`File ${file.name} exceeds the maximum size of 20MB`);
+    // Validate file size (limit to 20MB)
+    const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB in bytes
+    if (file.size > MAX_FILE_SIZE) {
+      toast.error("File too large", {
+        description: `Maximum file size is 20MB. Your file is ${formatFileSize(file.size)}.`
+      });
       return;
     }
 
-    setIsUploading(true);
+    // Generate unique file name to avoid overwrites
+    const uniqueFileName = `${Date.now()}-${file.name}`;
     
+    // Show loading toast
+    const loadingToastId = crypto.randomUUID();
+    toast.loading("Uploading document", {
+      id: loadingToastId,
+      description: `Uploading ${file.name}...`
+    });
+
     try {
-      toast.loading(`Uploading ${file.name}...`);
+      // Create storage reference
+      const storageRef = ref(storage, `documents/${user.uid}/${uniqueFileName}`);
       
-      const uploadedDoc = await uploadDocument(file, category);
-      setDocuments(prev => [...prev, uploadedDoc]);
+      // Create upload task with state change monitoring
+      const uploadTask = uploadBytesResumable(storageRef, file);
       
-      toast.success(`${file.name} uploaded successfully`);
+      // Track upload progress
+      uploadTask.on('state_changed', 
+        (snapshot) => {
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          setUploadProgress(Math.round(progress));
+        },
+        (error) => {
+          // Handle upload errors
+          logError('Upload failed', error);
+          toast.error("Upload failed", {
+            id: loadingToastId,
+            description: "There was an error uploading your document. Please try again.",
+          });
+          setUploadProgress(0);
+          throw error; // Propagate error for Promise rejection
+        }
+      );
+      
+      // Wait for upload to complete
+      await uploadTask;
+      
+      // Get download URL after successful upload
+      const downloadURL = await getDownloadURL(storageRef);
+      
+      // Save document metadata to Firestore
+      const docRef = await addDoc(collection(db, "documents"), {
+        userId: user.uid,
+        name: file.name,
+        fileName: uniqueFileName,
+        fileType: file.type,
+        size: file.size,
+        category: category,
+        url: downloadURL,
+        uploadedAt: serverTimestamp(),
+      });
+      
+      // Show success notification and close loading toast
+      toast.success("Document uploaded", {
+        id: loadingToastId,
+        description: `${file.name} has been uploaded successfully.`
+      });
+      
+      // Reset upload progress
+      setUploadProgress(0);
+      
+      // Refresh document list
+      setDocuments(prev => [...prev, { id: docRef.id, name: file.name, size: file.size, type: file.type, category, url: downloadURL, uploadedAt: Timestamp.fromDate(new Date()) }]);
+      
+      return docRef.id;
     } catch (error) {
-      console.error('Error uploading document:', error);
-      toast.error('Failed to upload document');
-    } finally {
-      setIsUploading(false);
+      // This will catch Firestore errors and any uncaught storage errors
+      logError('Document upload process failed', error);
+      
+      // Ensure the loading toast is dismissed and error is shown
+      toast.error("Upload process failed", {
+        id: loadingToastId,
+        description: "Unable to complete the document upload. Please try again."
+      });
+      
+      // Reset upload progress
+      setUploadProgress(0);
+      
+      return null;
     }
   };
 
-  const handleDeleteDocument = async (docId: string) => {
-    const docToDelete = documents.find(doc => doc.id === docId);
-    if (!docToDelete || !user?.uid) return;
-    
+  const handleDeleteDocument = async (documentId: string) => {
+    // Check if user is logged in and document exists
+    if (!user || !documentId) {
+      toast.error("Error", {
+        description: "Unable to delete document"
+      });
+      return;
+    }
+
+    // Show loading toast
+    const loadingToastId = crypto.randomUUID();
+    toast.loading("Deleting document", {
+      id: loadingToastId,
+      description: "Please wait..."
+    });
+
     try {
-      // Delete from Firestore
-      await deleteDoc(doc(db, 'users', user.uid, 'documents', docId));
+      // Get document reference
+      const docRef = doc(db, "documents", documentId);
       
-      // Delete from Storage if path is available
-      if ('path' in docToDelete) {
-        const storageRef = ref(storage, docToDelete.path as string);
-        await deleteObject(storageRef);
+      // Get document data
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const documentData = docSnap.data();
+        
+        // Check if document belongs to user
+        if (documentData.userId !== user.uid) {
+          throw new Error("Permission denied: You do not own this document");
+        }
+        
+        // Delete file from storage if URL exists
+        if (documentData.fileName) {
+          const storageRef = ref(storage, `documents/${user.uid}/${documentData.fileName}`);
+          await deleteObject(storageRef);
+        }
+        
+        // Delete document from Firestore
+        await deleteDoc(docRef);
+        
+        // Show success notification
+        toast.success("Document deleted", {
+          id: loadingToastId,
+          description: "The document has been removed successfully."
+        });
+        
+        // Refresh document list
+        setDocuments(prev => prev.filter(doc => doc.id !== documentId));
+      } else {
+        throw new Error("Document not found");
       }
-      
-      // Update UI
-      setDocuments(prev => prev.filter(doc => doc.id !== docId));
-      toast.success('Document deleted successfully');
     } catch (error) {
-      console.error('Error deleting document:', error);
-      toast.error('Failed to delete document');
+      logError('Document deletion failed', error);
+      
+      toast.error("Deletion failed", {
+        id: loadingToastId,
+        description: "There was an error deleting the document. Please try again."
+      });
     }
   };
 
@@ -256,6 +417,33 @@ export function DocumentUpload() {
       return new Date(date.seconds * 1000).toLocaleDateString();
     }
     return new Date(date).toLocaleDateString();
+  };
+
+  // Helper function to retry a failed upload
+  const handleRetryUpload = (file: File, category: DocumentCategory) => {
+    toast("Retrying upload", {
+      description: `Attempting to upload ${file.name} again...`
+    });
+    handleFileUpload(file, category);
+  };
+
+  // Centralized error logging function
+  const logError = (context: string, error: any) => {
+    console.error(`Error context: ${context}`, error);
+    
+    // Log additional Firebase error details if available
+    if (error.code) {
+      console.error(`Firebase error code: ${error.code}`);
+      
+      // Provide more specific guidance based on error code
+      if (error.code.includes('storage/')) {
+        console.error('Storage error detected. Check storage rules at src/lib/firebase/storage-rules.txt');
+      }
+      
+      if (error.code.includes('firestore/')) {
+        console.error('Firestore error detected. Check Firestore rules at src/lib/firebase/firestore-rules.txt');
+      }
+    }
   };
 
   return (

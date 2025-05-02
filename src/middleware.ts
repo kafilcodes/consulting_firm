@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const publicPaths = [
   '/',
   '/about',
-  '/services',
+  '/services-public',
   '/contact',
   '/auth/signin',
   '/auth/sign-in',
@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
   // Authentication check - redirect to sign-in if not authenticated
   if (!token) {
     console.log(`Middleware: No auth token found, redirecting to sign-in from ${pathname}`);
-    const signInUrl = new URL('/auth/signin', request.url);
+    const signInUrl = new URL('/auth/sign-in', request.url);
     signInUrl.searchParams.set('callbackUrl', encodeURIComponent(pathname));
     return NextResponse.redirect(signInUrl);
   }
@@ -97,10 +97,15 @@ export async function middleware(request: NextRequest) {
     if (userRole === 'admin') {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     } else if (userRole === 'client') {
-      return NextResponse.redirect(new URL('/client', request.url));
+      return NextResponse.redirect(new URL('/client/dashboard', request.url));
     } else if (userRole === 'consultant' || userRole === 'employee') {
       return NextResponse.redirect(new URL('/consultant/dashboard', request.url));
     }
+  }
+
+  // Redirect client to dashboard
+  if (pathname === '/client' && userRole === 'client') {
+    return NextResponse.redirect(new URL('/client/dashboard', request.url));
   }
 
   // If we get here, the user is authenticated and has the correct role

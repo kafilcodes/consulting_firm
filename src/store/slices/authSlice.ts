@@ -108,6 +108,12 @@ export const signOut = createAsyncThunk(
     try {
       await firebaseSignOut(auth);
       await updateAuthCookies(null, null);
+      
+      // Redirect to sign-in page after successful logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/auth/signin';
+      }
+      
       return null;
     } catch (error: any) {
       console.error('Sign-out error:', error);

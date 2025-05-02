@@ -416,6 +416,7 @@ export function Footer({ variant = 'default' }: FooterProps) {
                     src="/images/logo/sks_logo.png"
                     alt="SKS Consulting Logo"
                     fill
+                    sizes="(max-width: 768px) 24px, 48px"
                     className="object-contain"
                   />
                 </div>

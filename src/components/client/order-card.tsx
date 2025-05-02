@@ -2,11 +2,11 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Clock, ChevronRight, AlertCircle, CheckCircle, XCircle } from 'lucide-react';
+import { Clock, ChevronRight, AlertCircle, CheckCircle, XCircle, Package } from 'lucide-react';
 import type { Order, Service } from '@/types';
 
 interface OrderCardProps {
-  order: Order & { service: Service };
+  order: Order & { service: Service | null };
 }
 
 const statusConfig = {
@@ -24,6 +24,13 @@ const statusConfig = {
     borderColor: 'border-blue-200',
     text: 'Processing',
   },
+  'in-progress': {
+    icon: AlertCircle,
+    color: 'text-blue-500',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    text: 'In Progress',
+  },
   completed: {
     icon: CheckCircle,
     color: 'text-green-500',
@@ -38,10 +45,17 @@ const statusConfig = {
     borderColor: 'border-red-200',
     text: 'Cancelled',
   },
+  'on-hold': {
+    icon: Clock,
+    color: 'text-orange-500',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    text: 'On Hold',
+  },
 };
 
 export function OrderCard({ order }: OrderCardProps) {
-  const status = statusConfig[order.status as keyof typeof statusConfig];
+  const status = statusConfig[order.status as keyof typeof statusConfig] || statusConfig.pending;
   const StatusIcon = status.icon;
   const formattedDate = new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
@@ -71,10 +85,12 @@ export function OrderCard({ order }: OrderCardProps) {
 
         <div className="mt-4">
           <h3 className="text-lg font-medium text-gray-900">
-            {order.service.name}
+            {order.service ? order.service.name : 'Service Unavailable'}
           </h3>
           <p className="mt-1 text-sm text-gray-500">
-            {order.service.shortDescription}
+            {order.service 
+              ? order.service.shortDescription 
+              : `Service ID: ${order.serviceId} (Service details could not be loaded)`}
           </p>
         </div>
 
@@ -85,20 +101,20 @@ export function OrderCard({ order }: OrderCardProps) {
               <p className="mt-1 text-lg font-medium text-gray-900">
                 {new Intl.NumberFormat('en-IN', {
                   style: 'currency',
-                  currency: order.currency,
+                  currency: order.currency || 'INR',
                 }).format(order.amount)}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Payment Status</p>
               <p className={`mt-1 text-sm font-medium ${
-                order.paymentStatus === 'paid'
+                order.paymentStatus === 'paid' || order.paymentStatus === 'completed'
                   ? 'text-green-600'
                   : order.paymentStatus === 'failed'
                   ? 'text-red-600'
                   : 'text-yellow-600'
               }`}>
-                {order.paymentStatus.charAt(0).toUpperCase() + order.paymentStatus.slice(1)}
+                {(order.paymentStatus || 'pending').charAt(0).toUpperCase() + (order.paymentStatus || 'pending').slice(1)}
               </p>
             </div>
           </div>

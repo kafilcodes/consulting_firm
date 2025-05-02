@@ -65,6 +65,11 @@ export default function DocumentsPage() {
     { id: 'other', name: 'Other' },
   ];
 
+  // Handle category change
+  const handleCategoryChange = (value: string) => {
+    setSelectedCategory(value);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -109,12 +114,10 @@ export default function DocumentsPage() {
             />
           </div>
           <div className="w-full sm:w-1/3">
-            <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-              <SelectTrigger className="w-full">
-                <div className="flex items-center">
-                  <Filter className="mr-2 h-4 w-4 text-gray-500" />
-                  <SelectValue placeholder="All Categories" />
-                </div>
+            {/* Fixed Select component to use proper onChange handler */}
+            <Select value={selectedCategory} onValueChange={handleCategoryChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="All Categories" />
               </SelectTrigger>
               <SelectContent>
                 {categories.map((category) => (

@@ -328,7 +328,7 @@ export default function ClientDashboard() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <Button variant="outline" className="w-full justify-start" asChild>
-                  <Link href="/services">
+                  <Link href="/services-public">
                     <ShoppingBag className="mr-2 h-4 w-4" />
                     Browse Services
                   </Link>
@@ -385,7 +385,7 @@ export default function ClientDashboard() {
               </CardContent>
               <CardFooter className="justify-end">
                 <Button variant="ghost" asChild>
-                  <Link href="/services">
+                  <Link href="/services-public">
                     View all services <ChevronRight className="ml-1 h-4 w-4" />
                   </Link>
                 </Button>

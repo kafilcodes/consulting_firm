@@ -11,7 +11,6 @@ import {
   ChevronDown,
   Menu,
   X,
-  Home,
   Package,
   FileText,
   HelpCircle,
@@ -20,10 +19,10 @@ import {
 import { useAppSelector, useAppDispatch } from '@/store/hooks';
 import { signOut } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
-import Image from 'next/image';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Logo } from '@/components/logo';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,9 +35,9 @@ import { cn } from '@/lib/utils';
 
 // Navigation items with icons
 const navigation = [
-  { name: 'Dashboard', href: '/client/dashboard', icon: Home },
   { name: 'Services', href: '/client/services', icon: Package },
   { name: 'Orders', href: '/client/orders', icon: FileText },
+  { name: 'Documents', href: '/client/documents', icon: FileText },
   { name: 'Support', href: '/client/support', icon: HelpCircle },
 ];
 
@@ -102,18 +101,8 @@ export function ClientNavbar() {
           <div className="flex">
             {/* Logo */}
             <div className="flex-shrink-0 flex items-center">
-              <Link href="/client" className="flex items-center">
-                <Image
-                  src="/images/logo/sks_logo.png"
-                  alt="SKS Consulting Logo"
-                  width={40}
-                  height={40}
-                  className="h-9 w-auto mr-2"
-                  priority
-                />
-                <span className="text-lg font-bold hidden sm:inline-block text-gray-800">
-                  SKS Consulting
-                </span>
+              <Link href="/client/dashboard" className="flex items-center">
+                <Logo />
               </Link>
             </div>
             

@@ -2,7 +2,6 @@
 
 import { Fragment, useState, useMemo, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { Disclosure, Menu, Transition } from '@headlessui/react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { LayoutVariant } from './base-layout';
+import { Logo } from '@/components/logo';
 import { 
   ChevronDown, 
   Menu as MenuIcon, 
@@ -224,26 +224,15 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
       <nav className="container mx-auto px-4 sm:px-6 lg:px-8 py-3">
         <div className="flex items-center justify-between">
           {/* Logo and brand */}
-          <motion.div 
-            className="flex items-center"
+          <motion.div
+            className="flex flex-shrink-0 items-center"
             variants={navItemVariants}
           >
             <Link href="/" className="flex items-center" aria-label="Home">
-              <div className="relative h-9 w-9 sm:h-10 sm:w-10 mr-2 sm:mr-3">
-                <Image
-                  src="/images/logo/sks_logo.png"
-                  alt="SKS Consulting Logo"
-                  fill
-                  className="object-contain"
-                  priority
-                />
-              </div>
-              <span className={classNames(
-                'text-base sm:text-xl font-bold tracking-tight line-clamp-1',
-                variant === 'admin' ? 'text-white' : 'text-gray-900'
-              )}>
-                SKS Consulting Firm
-              </span>
+              <Logo 
+                size="md"
+                textColor={variant === 'admin' ? 'text-white' : 'text-gray-900'}
+              />
             </Link>
           </motion.div>
 

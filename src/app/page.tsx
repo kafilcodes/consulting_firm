@@ -609,7 +609,7 @@ export default function Home() {
                 asChild
                 className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
               >
-                <Link href="/client/services" className="flex items-center justify-center">
+                <Link href="/services-public" className="flex items-center justify-center">
                   View All Services
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
@@ -715,7 +715,7 @@ export default function Home() {
                 asChild
                 className="bg-white text-blue-700 hover:bg-blue-50 border-2 border-transparent hover:border-white transition-all duration-300 px-8 py-3 text-base font-medium rounded-md shadow-md hover:shadow-lg"
               >
-                <Link href="/auth/signin">
+                <Link href="/auth/sign-in">
                   Get Started
                 </Link>
               </Button>
