@@ -3,6 +3,8 @@ import { Navbar } from '@/components/layout/navbar';
 import { Footer } from '@/components/layout/footer';
 import { Phone, Mail, MapPin, Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 export const metadata: Metadata = {
   title: 'Contact Us | SKS Consulting',
@@ -13,7 +15,7 @@ export default function ContactPage() {
   return (
     <>
       <Navbar />
-      <main className="pt-20">
+      <main className="pt-16">
         {/* Hero Section */}
         <section className="bg-gradient-to-b from-blue-50 to-white py-20">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -70,16 +72,17 @@ export default function ContactPage() {
                       />
                     </div>
 
-                    <div>
-                      <label htmlFor="phone" className="block text-sm font-medium text-gray-700">
-                        Phone (Optional)
-                      </label>
-                      <input
+                    <div className="mb-6">
+                      <Label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone Number
+                      </Label>
+                      <Input
                         type="tel"
                         id="phone"
                         name="phone"
-                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 h-10 px-3 py-2 border"
-                        placeholder="+91 98765 43210"
+                        placeholder="Your phone number"
+                        className="w-full"
+                        required
                       />
                     </div>
 
@@ -177,22 +180,54 @@ export default function ContactPage() {
                   </div>
                 </div>
 
-                {/* Office Hours */}
-                <div className="mt-10 p-6 bg-blue-50 rounded-lg">
-                  <h3 className="text-lg font-medium text-gray-900">Business Hours</h3>
-                  <div className="mt-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Monday - Friday:</span>
-                      <span className="text-gray-900 font-medium">9:00 AM - 6:00 PM</span>
+                {/* Office Hours and Custom/Offline Solutions */}
+                <div className="mt-10 space-y-6">
+                  <div className="p-6 bg-blue-50 rounded-lg">
+                    <h3 className="text-lg font-medium text-gray-900">Business Hours</h3>
+                    <div className="mt-4 space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Monday - Friday:</span>
+                        <span className="text-gray-900 font-medium">9:00 AM - 6:00 PM</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Saturday:</span>
+                        <span className="text-gray-900 font-medium">10:00 AM - 2:00 PM</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Sunday:</span>
+                        <span className="text-gray-900 font-medium">Closed</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Saturday:</span>
-                      <span className="text-gray-900 font-medium">10:00 AM - 2:00 PM</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Sunday:</span>
-                      <span className="text-gray-900 font-medium">Closed</span>
-                    </div>
+                  </div>
+                  
+                  <div className="p-6 bg-gradient-to-br from-blue-600/10 to-indigo-600/10 rounded-lg border border-blue-100">
+                    <h3 className="text-lg font-medium text-blue-800">Custom & Offline Solutions</h3>
+                    <p className="mt-2 text-gray-700">
+                      Need specialized consulting services tailored to your unique business challenges? We offer custom solutions designed specifically for your organization's needs.
+                    </p>
+                    <ul className="mt-4 space-y-2">
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-700">On-site consulting services</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-700">Customized business solutions</span>
+                      </li>
+                      <li className="flex items-start">
+                        <svg className="h-5 w-5 text-blue-500 mr-2 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span className="text-gray-700">Personalized service packages</span>
+                      </li>
+                    </ul>
+                    <Button className="mt-4 bg-blue-600 hover:bg-blue-700 w-full sm:w-auto">
+                      Schedule a Consultation
+                    </Button>
                   </div>
                 </div>
               </div>

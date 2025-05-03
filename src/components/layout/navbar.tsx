@@ -124,6 +124,21 @@ interface NavbarProps {
   variant?: LayoutVariant;
 }
 
+// Helper function for nav link classes
+function getNavLinkClasses(isCurrent: boolean, variant: LayoutVariant) {
+  const baseClasses = "relative px-3 py-2 rounded-md text-sm transition-all duration-200 ease-in-out flex items-center";
+  
+  if (variant === 'admin') {
+    return isCurrent
+      ? `text-white bg-gray-800 ${baseClasses}`
+      : `text-gray-300 hover:bg-gray-700 hover:text-white ${baseClasses}`;
+  }
+  
+  return isCurrent
+    ? `text-blue-600 bg-blue-50/50 dark:bg-blue-900/10 ${baseClasses}`
+    : `text-gray-600 hover:text-blue-600 hover:bg-gray-50 dark:hover:bg-gray-800/30 ${baseClasses}`;
+}
+
 export function Navbar({ variant = 'default' }: NavbarProps) {
   const pathname = usePathname();
   const dispatch = useAppDispatch();
@@ -164,7 +179,7 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
       toast.info('Signing out...', { id: 'signout-loading' });
       await dispatch(signOut()).unwrap();
       toast.success('Successfully signed out', { id: 'signout-success' });
-      // Redirect will be handled by middleware
+      // Redirect is handled directly in the signOut thunk
     } catch (error) {
       console.error('Sign out error:', error);
       toast.error('Failed to sign out. Please try again.', { id: 'signout-error' });
@@ -228,165 +243,193 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
             className="flex flex-shrink-0 items-center"
             variants={navItemVariants}
           >
-            <Link href="/" className="flex items-center" aria-label="Home">
-              <Logo 
-                size="md"
-                textColor={variant === 'admin' ? 'text-white' : 'text-gray-900'}
-              />
-            </Link>
+            {pathname === '/' ? (
+              <div className="flex items-center" aria-label="Home">
+                <Logo 
+                  size="md"
+                  textColor={variant === 'admin' ? 'text-white' : 'text-gray-900'}
+                  animated={true}
+                  href={undefined}
+                />
+              </div>
+            ) : (
+              <Link href="/" className="flex items-center" aria-label="Home">
+                <Logo 
+                  size="md"
+                  textColor={variant === 'admin' ? 'text-white' : 'text-gray-900'}
+                  animated={true}
+                  href={undefined}
+                />
+              </Link>
+            )}
           </motion.div>
 
           {/* Desktop navigation */}
-          <div className="hidden md:flex items-center justify-between flex-1 ml-6 lg:ml-10">
-            <motion.div className="flex items-center space-x-2 lg:space-x-3" variants={navItemVariants}>
-              {navigation.map((item, index) => (
-                <motion.div key={item.name} variants={navItemVariants} custom={index}>
-                  <Link
-                    href={item.href}
-                    className={classNames(
-                      pathname === item.href 
-                        ? `${getTextColor(true)} bg-blue-50/50 dark:bg-blue-900/10` 
-                        : `${getTextColor(false)} hover:bg-gray-50 dark:hover:bg-gray-800/30`,
-                      "relative px-3 py-2 rounded-md text-sm transition-all duration-200 ease-in-out flex items-center group"
-                    )}
-                  >
-                    {item.icon && (
-                      <span className={`${pathname === item.href ? 'text-blue-500' : 'text-gray-500 group-hover:text-blue-500'} transition-colors duration-200`}>
-                        <item.icon className="w-4 h-4 mr-1.5 flex-shrink-0" />
-                      </span>
-                    )}
-                    {item.name}
-                    {pathname === item.href && (
-                      <motion.div 
-                        className="absolute bottom-0 left-3 right-3 h-0.5 bg-blue-500 rounded-full"
-                        layoutId="activeNavIndicator"
-                        transition={{ duration: 0.3, ease: "easeInOut" }}
-                      />
-                    )}
-                  </Link>
-                </motion.div>
-              ))}
-            </motion.div>
-
-            <motion.div className="flex items-center space-x-3 md:space-x-4" variants={navItemVariants}>
-              {/* Explore Services button (always visible) */}
-              <Button 
-                asChild 
-                variant={variant === 'admin' ? 'secondary' : 'outline'}
-                size="sm"
-                className="text-sm font-medium hidden lg:flex items-center hover:shadow-sm transition-shadow"
+          <div className="hidden md:ml-6 md:flex md:items-center md:space-x-0.5">
+            <AnimatePresence>
+              <motion.div
+                variants={navItemVariants}
+                className="flex space-x-0.5"
               >
-                <Link href="/client/services" className="flex items-center">
-                  <Briefcase className="w-4 h-4 mr-1.5 text-blue-500" />
-                  Explore Services
+                {navigation.map((item) => {
+                  // Check if this is the current page
+                  const isCurrent = 
+                    (item.href === '/' && pathname === '/') || 
+                    (item.href !== '/' && pathname.startsWith(item.href));
+                    
+                  return (
+                    <Link
+                      key={item.name}
+                      href={item.href}
+                      className={classNames(
+                        getNavLinkClasses(isCurrent, variant)
+                      )}
+                      aria-current={isCurrent ? 'page' : undefined}
+                    >
+                      {item.name}
+                    </Link>
+                  );
+                })}
+              </motion.div>
+            </AnimatePresence>
+
+            {/* Contact Button */}
+            <motion.div
+              variants={navItemVariants}
+              className="ml-3"
+            >
+              <Button
+                asChild
+                variant="outline"
+                size="sm"
+                className="border-blue-200 hover:border-blue-300 text-blue-600 hover:text-blue-700 flex items-center"
+              >
+                <Link href="/contact">
+                  <Mail className="w-3.5 h-3.5 mr-1.5" />
+                  <span>Custom Solutions</span>
                 </Link>
               </Button>
-
-              {user ? (
-                <Menu as="div" className="relative">
-                  <Menu.Button 
-                    className={classNames(
-                      "flex items-center space-x-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 hover:shadow-sm transition-all duration-200",
-                      variant === 'admin' ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-100'
-                    )}
-                  >
-                    <Avatar>
-                      <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'User'} />
-                      <AvatarFallback className={variant === 'admin' ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-800'}>
-                        {getUserInitials()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className={classNames(
-                      "hidden lg:block text-sm font-medium",
-                      variant === 'admin' ? 'text-gray-200' : 'text-gray-700'
-                    )}>
-                      {user.displayName?.split(' ')[0] || 'User'}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-current opacity-50" />
-                  </Menu.Button>
-                  
-                  <AnimatePresence>
-                    <Transition
-                      as={Fragment}
-                      enter="transition ease-out duration-100"
-                      enterFrom="transform opacity-0 scale-95"
-                      enterTo="transform opacity-100 scale-100"
-                      leave="transition ease-in duration-75"
-                      leaveFrom="transform opacity-100 scale-100"
-                      leaveTo="transform opacity-0 scale-95"
-                    >
-                      <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
-                        <motion.div
-                          initial="hidden"
-                          animate="visible"
-                          exit="hidden"
-                          variants={dropdownVariants}
-                        >
-                          {/* User info */}
-                          <div className="border-b border-gray-100 px-4 py-3">
-                            <p className="truncate text-sm font-medium text-gray-900">{user.displayName}</p>
-                            <p className="truncate text-sm text-gray-500">{user.email}</p>
-                          </div>
-
-                          <div className="py-1">
-                            {userMenuItems.map((item) => {
-                              const Icon = item.icon;
-                              return (
-                                <Menu.Item key={item.name}>
-                                  {({ active }) => (
-                                    <Link
-                                      href={item.href}
-                                      className={classNames(
-                                        active ? 'bg-gray-50 text-blue-600' : 'text-gray-700',
-                                        'flex items-center px-4 py-2 text-sm'
-                                      )}
-                                    >
-                                      <Icon className="mr-3 h-4 w-4" />
-                                      {item.name}
-                                    </Link>
-                                  )}
-                                </Menu.Item>
-                              );
-                            })}
-  
-                            <Menu.Item>
-                              {({ active }) => (
-                                <button
-                                  onClick={handleSignOut}
-                                  disabled={signingOut || isLoading}
-                                  className={classNames(
-                                    active ? 'bg-gray-50 text-red-600' : 'text-gray-700',
-                                    (signingOut || isLoading) ? 'opacity-50 cursor-not-allowed' : '',
-                                    'flex items-center w-full text-left px-4 py-2 text-sm'
-                                  )}
-                                >
-                                  <LogOut className="mr-3 h-4 w-4" />
-                                  {signingOut ? 'Signing out...' : 'Sign out'}
-                                </button>
-                              )}
-                            </Menu.Item>
-                          </div>
-                        </motion.div>
-                      </Menu.Items>
-                    </Transition>
-                  </AnimatePresence>
-                </Menu>
-              ) : (
-                <Button
-                  asChild
-                  variant="premium"
-                  size="sm"
-                  className="shadow-md hover:shadow-lg transition-shadow"
-                >
-                  <Link href="/auth/sign-in" className="flex items-center">
-                    <UserCircle2 className="w-4 h-4 mr-1.5" />
-                    <span>Sign In</span>
-                    <ChevronRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
-              )}
             </motion.div>
           </div>
+
+          <motion.div className="flex items-center space-x-3 md:space-x-4" variants={navItemVariants}>
+            {/* Explore Services button (always visible) */}
+            <Button 
+              asChild 
+              variant={variant === 'admin' ? 'secondary' : 'outline'}
+              size="sm"
+              className="text-sm font-medium hidden lg:flex items-center hover:shadow-sm transition-shadow"
+            >
+              <Link href={user ? "/client/services" : "/services-list"} className="flex items-center">
+                <Briefcase className="w-4 h-4 mr-1.5 text-blue-500" />
+                Explore Services
+              </Link>
+            </Button>
+
+            {user ? (
+              <Menu as="div" className="relative">
+                <Menu.Button 
+                  className={classNames(
+                    "flex items-center space-x-2 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 p-1 hover:shadow-sm transition-all duration-200",
+                    variant === 'admin' ? 'hover:bg-gray-800 text-white' : 'hover:bg-gray-100'
+                  )}
+                >
+                  <Avatar>
+                    <AvatarImage src={user.photoURL || undefined} alt={user.displayName || 'User'} />
+                    <AvatarFallback className={variant === 'admin' ? 'bg-gray-700 text-white' : 'bg-blue-100 text-blue-800'}>
+                      {getUserInitials()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className={classNames(
+                    "hidden lg:block text-sm font-medium",
+                    variant === 'admin' ? 'text-gray-200' : 'text-gray-700'
+                  )}>
+                    {user.displayName?.split(' ')[0] || 'User'}
+                  </span>
+                  <ChevronDown className="h-4 w-4 text-current opacity-50" />
+                </Menu.Button>
+                
+                <AnimatePresence>
+                  <Transition
+                    as={Fragment}
+                    enter="transition ease-out duration-100"
+                    enterFrom="transform opacity-0 scale-95"
+                    enterTo="transform opacity-100 scale-100"
+                    leave="transition ease-in duration-75"
+                    leaveFrom="transform opacity-100 scale-100"
+                    leaveTo="transform opacity-0 scale-95"
+                  >
+                    <Menu.Items className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none overflow-hidden">
+                      <motion.div
+                        initial="hidden"
+                        animate="visible"
+                        exit="hidden"
+                        variants={dropdownVariants}
+                      >
+                        {/* User info */}
+                        <div className="border-b border-gray-100 px-4 py-3">
+                          <p className="truncate text-sm font-medium text-gray-900">{user.displayName}</p>
+                          <p className="truncate text-sm text-gray-500">{user.email}</p>
+                        </div>
+
+                        <div className="py-1">
+                          {userMenuItems.map((item) => {
+                            const Icon = item.icon;
+                            return (
+                              <Menu.Item key={item.name}>
+                                {({ active }) => (
+                                  <Link
+                                    href={item.href}
+                                    className={classNames(
+                                      active ? 'bg-gray-50 text-blue-600' : 'text-gray-700',
+                                      'flex items-center px-4 py-2 text-sm'
+                                    )}
+                                  >
+                                    <Icon className="mr-3 h-4 w-4" />
+                                    {item.name}
+                                  </Link>
+                                )}
+                              </Menu.Item>
+                            );
+                          })}
+    
+                          <Menu.Item>
+                            {({ active }) => (
+                              <button
+                                onClick={handleSignOut}
+                                disabled={signingOut || isLoading}
+                                className={classNames(
+                                  active ? 'bg-gray-50 text-red-600' : 'text-gray-700',
+                                  (signingOut || isLoading) ? 'opacity-50 cursor-not-allowed' : '',
+                                  'flex items-center w-full text-left px-4 py-2 text-sm'
+                                )}
+                              >
+                                <LogOut className="mr-3 h-4 w-4" />
+                                {signingOut ? 'Signing out...' : 'Sign out'}
+                              </button>
+                            )}
+                          </Menu.Item>
+                        </div>
+                      </motion.div>
+                    </Menu.Items>
+                  </Transition>
+                </AnimatePresence>
+              </Menu>
+            ) : (
+              <Button
+                asChild
+                variant="premium"
+                size="sm"
+                className="shadow-md hover:shadow-lg transition-shadow"
+              >
+                <Link href="/auth/sign-in" className="flex items-center">
+                  <UserCircle2 className="w-4 h-4 mr-1.5" />
+                  <span>Sign In</span>
+                  <ChevronRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+            )}
+          </motion.div>
 
           {/* Mobile menu button */}
           <div className="flex items-center md:hidden space-x-2">
@@ -467,7 +510,7 @@ export function Navbar({ variant = 'default' }: NavbarProps) {
 
                 <motion.div variants={navItemVariants}>
                   <Link
-                    href="/client/services"
+                    href={user ? "/client/services" : "/services-list"}
                     className={classNames(
                       variant === 'admin' 
                         ? 'bg-gray-800 text-white hover:bg-gray-700' 

@@ -18,15 +18,13 @@ export async function POST(request: NextRequest) {
   // Track if we have a token for debugging
   console.log(`API: Setting auth cookies: { hasToken: ${!!token}, role: '${role}' }`);
   
-  // Get the cookie store
-  const cookieStore = cookies();
-  
-  // Set auth-token cookie
-  console.log('API: Setting auth-token cookie');
-  
   try {
-    // Set auth-token cookie with Promise handling
-    await cookieStore.set({
+    // Get the cookie store - await it according to Next.js requirements
+    const cookieStore = await cookies();
+    
+    // Set auth-token cookie
+    console.log('API: Setting auth-token cookie');
+    cookieStore.set({
       name: 'auth-token',
       value: token,
       httpOnly: true,
@@ -36,23 +34,14 @@ export async function POST(request: NextRequest) {
       // 7 days in seconds
       maxAge: 7 * 24 * 60 * 60,
     });
-  } catch (error) {
-    console.error('Error setting auth-token cookie:', error);
-    return NextResponse.json(
-      { error: 'Failed to set auth-token cookie' },
-      { status: 500 }
-    );
-  }
-  
-  // Set user-role cookie if provided
-  if (role) {
-    // Normalize role to lowercase for consistency
-    const normalizedRole = role.toLowerCase();
-    console.log(`API: Setting user-role cookie: ${normalizedRole}`);
     
-    try {
-      // Set user-role cookie with Promise handling
-      await cookieStore.set({
+    // Set user-role cookie if provided
+    if (role) {
+      // Normalize role to lowercase for consistency
+      const normalizedRole = role.toLowerCase();
+      console.log(`API: Setting user-role cookie: ${normalizedRole}`);
+      
+      cookieStore.set({
         name: 'user-role',
         value: normalizedRole,
         httpOnly: true,
@@ -62,13 +51,13 @@ export async function POST(request: NextRequest) {
         // 7 days in seconds
         maxAge: 7 * 24 * 60 * 60,
       });
-    } catch (error) {
-      console.error('Error setting user-role cookie:', error);
-      return NextResponse.json(
-        { error: 'Failed to set user-role cookie' },
-        { status: 500 }
-      );
     }
+  } catch (error) {
+    console.error('Error setting auth cookies:', error);
+    return NextResponse.json(
+      { error: 'Failed to set auth cookies' },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json(
@@ -78,11 +67,12 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const cookieStore = cookies();
-  
   try {
+    // Get the cookie store - await it according to Next.js requirements
+    const cookieStore = await cookies();
+    
     // Remove the auth token cookie
-    await cookieStore.set({
+    cookieStore.set({
       name: 'auth-token',
       value: '',
       httpOnly: true,
@@ -93,7 +83,7 @@ export async function DELETE() {
     });
     
     // Remove the user role cookie
-    await cookieStore.set({
+    cookieStore.set({
       name: 'user-role',
       value: '',
       httpOnly: true,

@@ -305,7 +305,7 @@ export default function Home() {
   return (
     <>
       <Navbar />
-      <main className="overflow-hidden">
+      <main className="overflow-hidden pt-16">
         {/* Hero Section - Enhanced Design with Better Responsiveness */}
         <section className="relative overflow-hidden bg-white">
           {/* Refined background with subtle patterns */}
@@ -400,7 +400,7 @@ export default function Home() {
                             asChild
                             className="bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white px-8 py-3 rounded-md shadow-lg hover:shadow-xl transition-all duration-300 text-base font-medium"
                           >
-                            <Link href="/auth/signin" className="flex items-center">
+                            <Link href="/services-list" className="flex items-center">
                               Access Premium Services
                               <ArrowRight className="ml-2 h-5 w-5" />
                             </Link>
@@ -591,7 +591,7 @@ export default function Home() {
                           variant="ghost"
                           className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 p-0 -ml-2 group-hover:translate-x-1 transition-transform duration-300 text-xs sm:text-sm"
                         >
-                          <Link href="/auth/signin" className="flex items-center px-2 sm:px-4 py-1 sm:py-2">
+                          <Link href="/services-list" className="flex items-center px-2 sm:px-4 py-1 sm:py-2">
                             Learn More
                             <ArrowRight className="ml-1 h-3 w-3 sm:h-4 sm:w-4 group-hover:ml-2 transition-all duration-300" />
                           </Link>
@@ -607,11 +607,13 @@ export default function Home() {
             <div className="mt-8 text-center md:hidden">
               <Button
                 asChild
-                className="bg-blue-600 hover:bg-blue-700 text-white shadow-md"
+                variant="primary"
+                size="lg"
+                className="bg-blue-600 hover:bg-blue-700 text-white border-2 border-transparent hover:border-blue-300 transition-all duration-300 px-8 py-6 text-lg font-medium rounded-md shadow-md hover:shadow-lg"
               >
-                <Link href="/services-public" className="flex items-center justify-center">
-                  View All Services
-                  <ArrowRight className="ml-2 h-4 w-4" />
+                <Link href="/services-list">
+                  Explore Services
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Link>
               </Button>
             </div>
@@ -715,7 +717,7 @@ export default function Home() {
                 asChild
                 className="bg-white text-blue-700 hover:bg-blue-50 border-2 border-transparent hover:border-white transition-all duration-300 px-8 py-3 text-base font-medium rounded-md shadow-md hover:shadow-lg"
               >
-                <Link href="/auth/sign-in">
+                <Link href="/services-list">
                   Get Started
                 </Link>
               </Button>
@@ -724,9 +726,9 @@ export default function Home() {
                 variant="outline"
                 className="bg-transparent border-2 border-white text-white hover:bg-white/10 transition-all duration-300 px-8 py-3 text-base font-medium rounded-md"
               >
-                <a href="#services">
+                <Link href="/services-list">
                   Explore Services
-                </a>
+                </Link>
               </Button>
             </div>
           </div>

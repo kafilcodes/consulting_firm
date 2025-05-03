@@ -109,9 +109,10 @@ export const signOut = createAsyncThunk(
       await firebaseSignOut(auth);
       await updateAuthCookies(null, null);
       
-      // Redirect to sign-in page after successful logout
+      // Redirect to home page after successful logout, ensuring no callback URL is appended
       if (typeof window !== 'undefined') {
-        window.location.href = '/auth/signin';
+        // Use direct location.href assignment to prevent path issues
+        window.location.href = '/';
       }
       
       return null;
@@ -229,7 +230,7 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isLoading = false;
         state.error = null;
-        toast.success(`Welcome, ${action.payload.displayName || 'User'}!`);
+        // Toast notification is handled in the auth-form component
       })
       .addCase(signInWithGoogle.rejected, (state, action) => {
         state.isLoading = false;

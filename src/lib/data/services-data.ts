@@ -158,6 +158,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Complete accounting services for small to medium businesses',
     description: 'Our comprehensive business accounting services cover all aspects of your financial record-keeping needs. We handle bookkeeping, financial statement preparation, reconciliation, and financial reporting to ensure your business maintains accurate and compliant financial records.',
     category: 'ca-services',
+    serviceType: 'plan',
     price: {
       amount: 24999,
       currency: 'INR',
@@ -192,6 +193,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Strategic tax planning to minimize liabilities and maximize savings',
     description: 'Our tax planning and strategy service helps businesses and individuals identify opportunities to minimize tax liabilities while ensuring full compliance with tax laws. We create customized tax strategies based on your specific financial situation to help you keep more of what you earn.',
     category: 'tax',
+    serviceType: 'plan',
     price: {
       amount: 15999,
       currency: 'INR',
@@ -226,6 +228,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Thorough audit services for regulatory compliance and financial transparency',
     description: 'Our comprehensive business audit service examines your financial statements, internal controls, and accounting practices to ensure accuracy, compliance, and transparency. We identify potential issues and provide recommendations to strengthen your financial reporting and processes.',
     category: 'audit',
+    serviceType: 'plan',
     price: {
       amount: 49999,
       currency: 'INR',
@@ -263,6 +266,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Complete business registration and incorporation services for new ventures',
     description: 'Our company registration service handles all aspects of legally establishing your business entity. From selecting the optimal business structure to completing all necessary filings with government authorities, we ensure your business is properly registered and compliant from day one.',
     category: 'registration',
+    serviceType: 'plan',
     price: {
       amount: 19999,
       currency: 'INR',
@@ -300,6 +304,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Complete GST registration and ongoing compliance management',
     description: 'Our GST registration and compliance service takes care of registering your business for Goods and Services Tax and ensures ongoing compliance with all GST regulations. We handle monthly/quarterly return filing, input tax credit management, and keep you updated on regulatory changes.',
     category: 'tax',
+    serviceType: 'one-time',
     price: {
       amount: 9999,
       currency: 'INR',
@@ -336,6 +341,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Strategic consulting to accelerate business growth and profitability',
     description: 'Our business growth strategy consulting helps you identify and capitalize on opportunities to expand your business. We analyze your current operations, market position, and competitive landscape to develop actionable strategies for sustainable growth and increased profitability.',
     category: 'consulting',
+    serviceType: 'plan',
     price: {
       amount: 75000,
       currency: 'INR',
@@ -374,6 +380,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Comprehensive internal audit to strengthen control systems and reduce risk',
     description: 'Our internal audit service evaluates your organization\'s internal control systems, risk management processes, and governance procedures to ensure efficiency, effectiveness, and compliance. We identify control weaknesses and provide recommendations to strengthen your internal operations.',
     category: 'audit',
+    serviceType: 'plan',
     price: {
       amount: 35000,
       currency: 'INR',
@@ -413,6 +420,7 @@ export const servicesData: Service[] = [
     shortDescription: 'Professional preparation of accurate and compliant financial statements',
     description: 'Our financial statement preparation service ensures your business has properly prepared balance sheets, income statements, cash flow statements, and other financial reports. We ensure accuracy, compliance with accounting standards, and create statements that provide valuable insights into your financial position.',
     category: 'ca-services',
+    serviceType: 'plan',
     price: {
       amount: 12999,
       currency: 'INR',
@@ -445,12 +453,204 @@ export const servicesData: Service[] = [
     ],
     estimatedDuration: '2-3 weeks',
     image: '/images/services/financial-statements.jpg'
+  },
+  // New One-Time Services
+  {
+    id: 'tax-002',
+    name: 'Income Tax Return (ITR) Filing',
+    shortDescription: 'Professional ITR filing service for individuals and businesses',
+    description: 'Our Income Tax Return filing service ensures accurate and timely submission of your tax returns. We handle all complexities of the ITR process, maximize your eligible deductions, and ensure compliance with the latest tax regulations to help you avoid penalties and notices.',
+    category: 'tax',
+    serviceType: 'one-time',
+    price: {
+      amount: 2999,
+      currency: 'INR',
+      billingType: 'one-time'
+    },
+    features: [
+      'Assessment of appropriate ITR form',
+      'Calculation of total income and tax liability',
+      'Identification of all eligible deductions',
+      'Capital gains computation if applicable',
+      'E-filing of return with digital signature',
+      'Post-filing support for notices'
+    ],
+    requirements: [
+      'Form 16/16A from employer',
+      'Bank statements for the financial year',
+      'Investment proofs for tax saving',
+      'Property documents if applicable',
+      'Previous year\'s ITR (if filed)'
+    ],
+    deliverables: [
+      'Filed ITR with acknowledgment',
+      'Tax computation sheet',
+      'Recommendations for future tax planning',
+      'E-filing confirmation',
+      'Copy of all submitted documents'
+    ],
+    estimatedDuration: '2-5 days',
+    image: '/images/services/itr.jpg'
+  },
+  {
+    id: 'tax-003',
+    name: 'GST Return Filing - Single Period',
+    shortDescription: 'One-time GST return filing service for businesses',
+    description: 'Our one-time GST return filing service helps businesses meet their GST compliance requirements for a specific tax period. We ensure accurate preparation and timely submission of your GSTR forms, reconcile input tax credits, and help you avoid late filing penalties.',
+    category: 'tax',
+    serviceType: 'one-time',
+    price: {
+      amount: 1499,
+      currency: 'INR',
+      billingType: 'one-time'
+    },
+    features: [
+      'GSTR form preparation and filing',
+      'Input tax credit reconciliation',
+      'Tax liability calculation',
+      'Filing within statutory deadlines',
+      'Basic GST compliance advisory',
+      'Error correction assistance'
+    ],
+    requirements: [
+      'Purchase and sales invoices for the period',
+      'GST login credentials',
+      'Previous returns if applicable',
+      'Bank statements for the period',
+      'Details of any advances received'
+    ],
+    deliverables: [
+      'Filed GSTR return with acknowledgment',
+      'GST tax computation sheet',
+      'ITC reconciliation report',
+      'Filing confirmation',
+      'Summary of tax paid'
+    ],
+    estimatedDuration: '1-3 days',
+    image: '/images/services/gst-return.jpg'
+  },
+  {
+    id: 'ca-004',
+    name: 'Annual Accounting Closure',
+    shortDescription: 'Year-end accounting services for small and medium businesses',
+    description: 'Our annual accounting closure service helps businesses properly close their books at the end of the financial year. We ensure all transactions are properly recorded, prepare year-end financial statements, and get your accounts ready for tax filing and statutory compliance.',
+    category: 'ca-services',
+    serviceType: 'one-time',
+    price: {
+      amount: 7999,
+      currency: 'INR',
+      billingType: 'one-time'
+    },
+    features: [
+      'Year-end journal entries and adjustments',
+      'Reconciliation of all accounts',
+      'Preparation of annual financial statements',
+      'Fixed assets register updating',
+      'Inventory valuation assistance',
+      'Preparation for statutory audit'
+    ],
+    requirements: [
+      'Complete accounting records for the year',
+      'Bank statements for all accounts',
+      'Fixed asset purchases/disposals information',
+      'Inventory details and valuation method',
+      'Outstanding payables and receivables'
+    ],
+    deliverables: [
+      'Year-end balance sheet',
+      'Profit and loss statement',
+      'Cash flow statement',
+      'Notes to accounts',
+      'Reconciliation reports',
+      'Tax-ready financial package'
+    ],
+    estimatedDuration: '1-2 weeks',
+    image: '/images/services/annual-accounts.jpg'
+  },
+  {
+    id: 'reg-002',
+    name: 'Vehicle Registration & Documentation',
+    shortDescription: 'Complete vehicle registration and documentation services',
+    description: 'Our vehicle registration service handles all the paperwork and procedures required for registering your vehicle with the Regional Transport Office (RTO). We take care of the entire process from application submission to obtaining the registration certificate, ensuring compliance with all regulations.',
+    category: 'registration',
+    serviceType: 'one-time',
+    price: {
+      amount: 4999,
+      currency: 'INR',
+      billingType: 'one-time'
+    },
+    features: [
+      'RTO application preparation and submission',
+      'Vehicle inspection coordination',
+      'Road tax calculation and payment',
+      'Insurance verification',
+      'Registration certificate collection',
+      'High security registration plate arrangement'
+    ],
+    requirements: [
+      'Vehicle invoice and purchase documents',
+      'Owner\'s identity and address proof',
+      'Vehicle insurance policy',
+      'Pollution Under Control (PUC) certificate',
+      'Previous registration details (if transfer)'
+    ],
+    deliverables: [
+      'Vehicle registration certificate (RC)',
+      'Tax payment receipts',
+      'Number plate authorization',
+      'Registration documents file',
+      'Process completion report'
+    ],
+    estimatedDuration: '7-14 days',
+    image: '/images/services/vehicle-registration.jpg'
+  },
+  {
+    id: 'tax-004',
+    name: 'TDS Return Filing',
+    shortDescription: 'One-time TDS return preparation and filing service',
+    description: 'Our TDS (Tax Deducted at Source) return filing service ensures accurate and timely submission of your quarterly TDS returns. We handle preparation of the appropriate TDS forms, verification of deductions, and electronic filing with the Income Tax Department to keep you compliant with TDS regulations.',
+    category: 'tax',
+    serviceType: 'one-time',
+    price: {
+      amount: 1999,
+      currency: 'INR',
+      billingType: 'one-time'
+    },
+    features: [
+      'Preparation of TDS returns (Form 24Q, 26Q, 27Q, etc.)',
+      'Verification of TDS deductions and rates',
+      'Generation of Form 16/16A',
+      'E-filing of returns with digital signature',
+      'Correction statements if required',
+      'TDS payment challan verification'
+    ],
+    requirements: [
+      'Details of all payments made subject to TDS',
+      'TDS certificates and challans',
+      'PAN details of deductees',
+      'Bank statements for the quarter',
+      'Previous TDS returns (if applicable)'
+    ],
+    deliverables: [
+      'Filed TDS return with acknowledgment',
+      'Form 16/16A for deductees',
+      'TDS reconciliation report',
+      'Filing confirmation receipt',
+      'Compiled deduction summary'
+    ],
+    estimatedDuration: '3-5 days',
+    image: '/images/services/tds-filing.jpg'
   }
 ];
 
 // Function to get services by category
 export const getServicesByCategory = (categoryId: string): Service[] => {
   return servicesData.filter(service => service.category === categoryId);
+};
+
+// Function to get services by type
+export const getServicesByType = (serviceType: 'plan' | 'one-time'): Service[] => {
+  return servicesData.filter(service => service.serviceType === serviceType);
 };
 
 // Function to get a single service by ID

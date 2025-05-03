@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Filter, Search, Tag, CheckCircle, ChevronRight, Loader2 } from 'lucide-react';
+import { Filter, Search, Tag, CheckCircle, ChevronRight, Loader2, Package, Clock } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,13 +15,19 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 
-import { servicesData, serviceCategories } from '@/lib/data/services-data';
+import { servicesData, serviceCategories, getServicesByType } from '@/lib/data/services-data';
 import { Service } from '@/types';
 
 const easeIn = {
   initial: { opacity: 0, y: 20 },
   animate: { opacity: 1, y: 0 },
   transition: { duration: 0.5 }
+};
+
+const fadeIn = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  transition: { duration: 0.3 }
 };
 
 export default function ServicesPage() {
@@ -32,12 +38,19 @@ export default function ServicesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeTab, setActiveTab] = useState('plans');
 
   // Initialize with URL parameters if present
   useEffect(() => {
     const categoryParam = searchParams.get('category');
+    const typeParam = searchParams.get('type');
+    
     if (categoryParam) {
       setActiveCategory(categoryParam);
+    }
+    
+    if (typeParam && (typeParam === 'plans' || typeParam === 'one-time')) {
+      setActiveTab(typeParam);
     }
   }, [searchParams]);
 
@@ -46,11 +59,13 @@ export default function ServicesPage() {
       setIsLoading(true);
       try {
         // In a real app, this would be a fetch call to an API
-        // We're using the imported data directly here
-        setServices(servicesData);
+        // Filter services based on active tab (plans or one-time)
+        const serviceType = activeTab === 'plans' ? 'plan' : 'one-time';
+        const typeFilteredServices = getServicesByType(serviceType);
+        setServices(typeFilteredServices);
         
         // Apply initial category filter if needed
-        filterServices(servicesData, activeCategory, searchQuery);
+        filterServices(typeFilteredServices, activeCategory, searchQuery);
       } catch (error) {
         console.error('Error fetching services:', error);
         toast.error('Failed to load services. Please try again.');
@@ -60,7 +75,7 @@ export default function ServicesPage() {
     };
 
     fetchServices();
-  }, [activeCategory, searchQuery]);
+  }, [activeTab, activeCategory, searchQuery]);
 
   // Filter services based on category and search
   const filterServices = (allServices: Service[], category: string, query: string) => {
@@ -84,10 +99,23 @@ export default function ServicesPage() {
     setFilteredServices(filtered);
   };
 
+  // Handle tab change
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    setActiveCategory('all'); // Reset category when switching tabs
+    
+    // Update URL for shareable links
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('type', value);
+    params.delete('category');
+    
+    const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+    window.history.pushState({}, '', newUrl);
+  };
+
   // Handle category change
   const handleCategoryChange = (category: string) => {
     setActiveCategory(category);
-    filterServices(services, category, searchQuery);
     
     // Update URL for shareable links
     const params = new URLSearchParams(searchParams.toString());
@@ -105,7 +133,6 @@ export default function ServicesPage() {
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
     setSearchQuery(query);
-    filterServices(services, activeCategory, query);
   };
 
   // Format price with billing type
@@ -131,6 +158,10 @@ export default function ServicesPage() {
         <div className="mb-8">
           <Skeleton className="h-12 w-64 mb-2" />
           <Skeleton className="h-6 w-full max-w-xl" />
+        </div>
+        
+        <div className="mb-6">
+          <Skeleton className="h-14 w-full max-w-md mx-auto" />
         </div>
         
         <div className="flex mb-6 gap-4">
@@ -169,11 +200,48 @@ export default function ServicesPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <h1 className="text-3xl md:text-4xl font-bold mb-3">Our Professional Services</h1>
           <p className="text-muted-foreground max-w-3xl mx-auto">
             Browse our extensive range of professional services designed to help your business grow and succeed.
           </p>
+        </div>
+
+        {/* Modern Service Type Selector */}
+        <div className="w-full max-w-2xl mx-auto mb-12">
+          <div className="flex items-center justify-center bg-muted/30 p-2 rounded-full">
+            <button
+              onClick={() => handleTabChange('plans')}
+              className={`flex items-center justify-center w-full py-4 px-6 rounded-full text-base font-medium transition-all duration-300 ${
+                activeTab === 'plans'
+                  ? 'bg-gradient-to-r from-blue-600/70 via-blue-500/70 to-blue-400/70 text-white shadow-md transform scale-[1.02]'
+                  : 'text-muted-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Package className={`mr-2 h-5 w-5 ${activeTab === 'plans' ? 'text-white' : 'text-muted-foreground'}`} />
+              Service Plans
+            </button>
+            <button
+              onClick={() => handleTabChange('one-time')}
+              className={`flex items-center justify-center w-full py-4 px-6 rounded-full text-base font-medium transition-all duration-300 ${
+                activeTab === 'one-time'
+                  ? 'bg-gradient-to-r from-blue-600/70 via-blue-500/70 to-blue-400/70 text-white shadow-md transform scale-[1.02]'
+                  : 'text-muted-foreground hover:bg-muted/70'
+              }`}
+            >
+              <Clock className={`mr-2 h-5 w-5 ${activeTab === 'one-time' ? 'text-white' : 'text-muted-foreground'}`} />
+              One-time Services
+            </button>
+          </div>
+          
+          <div className="mt-6 text-center">
+            <p className="text-lg font-medium text-muted-foreground">
+              {activeTab === 'plans' 
+                ? 'Comprehensive service packages for ongoing business needs'
+                : 'Individual services for specific requirements and quick resolutions'
+              }
+            </p>
+          </div>
         </div>
 
         {/* Search and Filter */}
@@ -196,7 +264,7 @@ export default function ServicesPage() {
               onClick={() => handleCategoryChange('all')}
               className="whitespace-nowrap"
             >
-              All Services
+              All Categories
             </Button>
             
             {serviceCategories.map((category) => (
@@ -215,22 +283,27 @@ export default function ServicesPage() {
 
         {/* Services Grid */}
         {filteredServices.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredServices.map((service) => (
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            initial="initial"
+            animate="animate"
+            variants={fadeIn}
+          >
+            {filteredServices.map((service, index) => (
               <motion.div
                 key={service.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.3, delay: index * 0.05 }}
               >
-                <Card className="h-full flex flex-col hover:shadow-md transition-shadow duration-300">
+                <Card className="h-full flex flex-col hover:shadow-md transition-shadow duration-300 border-2 border-gray-100 overflow-hidden">
                   <div className="relative h-48 w-full overflow-hidden">
                     {service.image ? (
                       <Image
                         src={service.image}
                         alt={service.name}
                         fill
-                        className="object-cover"
+                        className="object-cover transition-transform duration-300 hover:scale-105"
                       />
                     ) : (
                       <div className="h-48 bg-gray-200 flex items-center justify-center">
@@ -238,7 +311,7 @@ export default function ServicesPage() {
                       </div>
                     )}
                     <div className="absolute top-2 right-2">
-                      <Badge variant="secondary" className="bg-black/70 text-white">
+                      <Badge variant="secondary" className="bg-black/70 text-white font-medium">
                         {formatPrice(service.price)}
                       </Badge>
                     </div>
@@ -281,7 +354,7 @@ export default function ServicesPage() {
                 </Card>
               </motion.div>
             ))}
-          </div>
+          </motion.div>
         ) : (
           <div className="text-center py-20 bg-muted/40 rounded-lg">
             <Tag className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
@@ -292,7 +365,6 @@ export default function ServicesPage() {
             <Button onClick={() => {
               setSearchQuery('');
               setActiveCategory('all');
-              filterServices(services, 'all', '');
             }}>
               Reset Filters
             </Button>

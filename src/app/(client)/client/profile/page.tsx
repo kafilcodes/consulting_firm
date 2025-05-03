@@ -10,17 +10,14 @@ import { updateUserProfile, updateCurrentUser } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
 import Link from 'next/link';
 import { User, Phone, MapPin, Building, Loader2, CheckCircle, X, AlertTriangle, ChevronRight } from 'lucide-react';
-import { ChangePassword } from '@/components/auth/change-password';
-import { ProfileImageUpload } from '@/components/profile/profile-image-upload';
-import { DocumentUpload } from '@/components/profile/document-upload';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 // More comprehensive profile schema with proper validations
 const profileSchema = z.object({
@@ -257,26 +254,44 @@ export default function ProfilePage() {
 
         <motion.div variants={itemVariants}>
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="personal">Personal Info</TabsTrigger>
               <TabsTrigger value="address">Address</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
             </TabsList>
 
             {/* Personal Information Tab */}
             <TabsContent value="personal" className="space-y-6 pt-4">
-              {/* Profile Image Upload */}
+              {/* User's Google Profile Picture (non-editable) */}
               <Card className="overflow-hidden">
                 <CardHeader>
                   <CardTitle>Profile Picture</CardTitle>
                   <CardDescription>
-                    Update your profile picture. It will be visible to our team and on your documents.
+                    Your Google account profile picture is displayed here
                   </CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <ProfileImageUpload />
+                <CardContent className="flex justify-center py-6">
+                  <Avatar className="h-24 w-24">
+                    <AvatarImage 
+                      src={user?.photoURL || undefined} 
+                      alt={user?.displayName || 'User'} 
+                      referrerPolicy="no-referrer"
+                    />
+                    <AvatarFallback className="text-2xl bg-blue-100 text-blue-800">
+                      {user?.displayName
+                        ? user.displayName
+                            .split(' ')
+                            .map(part => part[0])
+                            .join('')
+                            .toUpperCase()
+                            .substring(0, 2)
+                        : 'U'
+                      }
+                    </AvatarFallback>
+                  </Avatar>
                 </CardContent>
+                <CardFooter className="justify-center bg-gray-50 px-6 py-4 text-sm text-gray-500">
+                  To update your profile picture, please change it in your Google account settings
+                </CardFooter>
               </Card>
               
               {/* Basic Information Form */}
@@ -586,76 +601,6 @@ export default function ProfilePage() {
                   </CardFooter>
                 </Card>
               </form>
-            </TabsContent>
-
-            {/* Security Tab */}
-            <TabsContent value="security" className="space-y-6 pt-4">
-              <ChangePassword />
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Account Security</CardTitle>
-                  <CardDescription>
-                    Manage your account security settings and preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Add an extra layer of security to your account
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm" disabled>
-                      Coming Soon
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-900">Login Activity</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        View your recent login activity
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm" disabled>
-                      View Activity
-                    </Button>
-                  </div>
-                  
-                  <Separator />
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-sm font-medium text-red-600">Delete Account</h3>
-                      <p className="text-sm text-gray-500 mt-1">
-                        Permanently delete your account and all your data
-                      </p>
-                    </div>
-                    <Button variant="destructive" size="sm">
-                      Delete Account
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-
-            {/* Documents Tab */}
-            <TabsContent value="documents" className="space-y-6 pt-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Manage Documents</CardTitle>
-                  <CardDescription>
-                    Upload and manage important documents related to your services and account
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <DocumentUpload />
-                </CardContent>
-              </Card>
             </TabsContent>
           </Tabs>
         </motion.div>

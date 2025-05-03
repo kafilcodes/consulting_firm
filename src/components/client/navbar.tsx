@@ -37,7 +37,6 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { name: 'Services', href: '/client/services', icon: Package },
   { name: 'Orders', href: '/client/orders', icon: FileText },
-  { name: 'Documents', href: '/client/documents', icon: FileText },
   { name: 'Support', href: '/client/support', icon: HelpCircle },
 ];
 

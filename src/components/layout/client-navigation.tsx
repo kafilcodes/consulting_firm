@@ -33,7 +33,6 @@ const navigationItems = [
   { name: 'Dashboard', href: '/client/dashboard', icon: LayoutDashboard },
   { name: 'Services', href: '/client/services', icon: ShoppingBag },
   { name: 'Orders', href: '/client/orders', icon: Package },
-  { name: 'Documents', href: '/client/documents', icon: FileText },
   { name: 'Support', href: '/client/support', icon: MessageSquare },
 ];
 
@@ -104,8 +103,12 @@ export function ClientNavigation() {
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative rounded-full">
                   <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
-                    <AvatarFallback>{getInitials()}</AvatarFallback>
+                    <AvatarImage 
+                      src={user?.photoURL || undefined} 
+                      alt={user?.displayName || 'User'} 
+                      referrerPolicy="no-referrer"
+                    />
+                    <AvatarFallback className="bg-blue-100 text-blue-800">{getInitials()}</AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
@@ -182,8 +185,12 @@ export function ClientNavigation() {
             <div className="flex items-center px-4">
               <div className="flex-shrink-0">
                 <Avatar className="h-10 w-10">
-                  <AvatarImage src={user?.photoURL || ''} alt={user?.displayName || 'User'} />
-                  <AvatarFallback>{getInitials()}</AvatarFallback>
+                  <AvatarImage 
+                    src={user?.photoURL || undefined} 
+                    alt={user?.displayName || 'User'} 
+                    referrerPolicy="no-referrer"
+                  />
+                  <AvatarFallback className="bg-blue-100 text-blue-800">{getInitials()}</AvatarFallback>
                 </Avatar>
               </div>
               <div className="ml-3">

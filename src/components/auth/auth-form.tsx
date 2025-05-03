@@ -75,7 +75,11 @@ export function AuthForm() {
       }
       
       console.log('Sign-in successful, user role:', result.role);
-      toast.success(`Welcome${result.displayName ? ' ' + result.displayName : ''}!`);
+      // Add welcome notification
+      toast.success(`Welcome back${result.displayName ? ', ' + result.displayName.split(' ')[0] : ''}!`, {
+        id: 'welcome-toast',
+        duration: 3000,
+      });
       
       // Redirect based on user role
       if (result.role?.toLowerCase() === 'admin') {

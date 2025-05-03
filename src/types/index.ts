@@ -4,6 +4,7 @@ export interface Service {
   description: string;
   shortDescription: string;
   category: ServiceCategory;
+  serviceType: 'plan' | 'one-time';
   price: {
     amount: number;
     currency: string;
