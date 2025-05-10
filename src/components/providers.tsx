@@ -7,6 +7,7 @@ import { ReactNode, useState } from 'react';
 import { store } from '@/store';
 import { Toaster } from 'sonner';
 import { AuthInitializer } from '@/components/auth/auth-initializer';
+import { AuthProvider } from '@/contexts/auth-context';
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient({
@@ -27,9 +28,11 @@ export function Providers({ children }: { children: ReactNode }) {
           enableSystem
           disableTransitionOnChange
         >
-          <AuthInitializer>
-            {children}
-          </AuthInitializer>
+          <AuthProvider>
+            <AuthInitializer>
+              {children}
+            </AuthInitializer>
+          </AuthProvider>
           <Toaster 
             position="top-right"
             expand={false}

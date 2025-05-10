@@ -50,7 +50,8 @@ export function Logo({
         alt="SKS Consulting Logo"
         width={width}
         height={height}
-        className={cn(sizeClassName, "mr-2")}
+        style={{ width: 'auto', height: 'auto', maxHeight: `${height}px` }}
+        className={cn("mr-2")}
         priority
       />
       {showText && (

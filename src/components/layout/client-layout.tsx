@@ -50,7 +50,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const toggleSidebar = () => setSidebarOpen(!sidebarOpen)
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50 dark:bg-gray-900">
+    <div className="flex h-screen overflow-hidden bg-gray-50">
       <ClientSidebar isOpen={sidebarOpen} setIsOpen={setSidebarOpen} />
       
       <div className="flex flex-1 flex-col overflow-hidden">

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server';
 const publicPaths = [
   '/',
   '/about',
+  '/services',
   '/services-public',
   '/contact',
   '/auth/signin',
@@ -24,6 +25,7 @@ const nextInternalsPattern = /^\/_next\//;
 const clientPathPattern = /^\/client(\/|$)/;
 const adminPathPattern = /^\/admin(\/|$)/;
 const consultantPathPattern = /^\/consultant(\/|$)/;
+const employeePathPattern = /^\/employee(\/|$)/;
 
 /**
  * Normalize role to ensure consistent comparison
@@ -85,8 +87,16 @@ export async function middleware(request: NextRequest) {
 
   // Consultant section - accessible by consultant and admin roles
   if (consultantPathPattern.test(pathname)) {
-    if (userRole !== 'consultant' && userRole !== 'employee' && userRole !== 'admin') {
+    if (userRole !== 'consultant' && userRole !== 'admin') {
       console.log(`Middleware: User with role "${userRole}" attempted to access consultant area: ${pathname}`);
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  }
+
+  // Employee section - accessible by employee and admin roles
+  if (employeePathPattern.test(pathname)) {
+    if (userRole !== 'employee' && userRole !== 'admin') {
+      console.log(`Middleware: User with role "${userRole}" attempted to access employee area: ${pathname}`);
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   }
@@ -98,14 +108,22 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/admin/dashboard', request.url));
     } else if (userRole === 'client') {
       return NextResponse.redirect(new URL('/client/dashboard', request.url));
-    } else if (userRole === 'consultant' || userRole === 'employee') {
+    } else if (userRole === 'consultant') {
       return NextResponse.redirect(new URL('/consultant/dashboard', request.url));
+    } else if (userRole === 'employee') {
+      return NextResponse.redirect(new URL('/employee/dashboard', request.url));
     }
   }
 
-  // Redirect client to dashboard
+  // Role-specific redirects for root paths
   if (pathname === '/client' && userRole === 'client') {
     return NextResponse.redirect(new URL('/client/dashboard', request.url));
+  } else if (pathname === '/employee' && userRole === 'employee') {
+    return NextResponse.redirect(new URL('/employee/dashboard', request.url));
+  } else if (pathname === '/consultant' && userRole === 'consultant') {
+    return NextResponse.redirect(new URL('/consultant/dashboard', request.url));
+  } else if (pathname === '/admin' && userRole === 'admin') {
+    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
   // If we get here, the user is authenticated and has the correct role

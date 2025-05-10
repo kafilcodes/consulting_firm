@@ -136,19 +136,19 @@ export default function ServicesPage() {
   };
 
   // Format price with billing type
-  const formatPrice = (price: {amount: number, currency: string, billingType: 'one-time' | 'monthly' | 'yearly'}) => {
+  const formatPrice = (price: {amount: number, currency: string, billingCycle?: 'monthly' | 'quarterly' | 'yearly'}) => {
     const formatter = new Intl.NumberFormat('en-IN', {
       style: 'currency',
       currency: price.currency,
       maximumFractionDigits: 0
     });
     
-    return `${formatter.format(price.amount)}${price.billingType !== 'one-time' ? ` / ${price.billingType}` : ''}`;
+    return `${formatter.format(price.amount)}${price.billingCycle ? ` / ${price.billingCycle}` : ''}`;
   };
 
   // Handle direct order
   const handleOrderService = (serviceId: string) => {
-    router.push(`/client/checkout?serviceId=${serviceId}`);
+    router.push(`/client/services/${serviceId}/order`);
   };
 
   // Loading skeleton UI

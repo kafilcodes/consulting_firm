@@ -15,8 +15,8 @@ const badgeVariants = cva(
         destructive:
           "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
         outline: "text-foreground",
-        success: 
-          "border-transparent bg-emerald-500 text-white hover:bg-emerald-500/80",
+        success:
+          "border-transparent bg-green-100 text-green-700 hover:bg-green-200",
         warning:
           "border-transparent bg-amber-500 text-white hover:bg-amber-500/80",
         info:
@@ -39,9 +39,9 @@ const badgeVariants = cva(
           "border-transparent bg-amber-600 text-white hover:bg-amber-600/80",
       },
       size: {
-        default: "px-2.5 py-0.5 text-xs",
-        sm: "px-2 py-0.5 text-xs",
-        lg: "px-3 py-1 text-sm",
+        default: "h-6 px-2.5 py-0.5 text-xs",
+        sm: "h-5 px-1.5 py-0 text-xs",
+        lg: "h-7 px-3 py-1 text-sm",
       },
     },
     defaultVariants: {

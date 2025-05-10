@@ -21,6 +21,7 @@ import {
   resetPassword as firebaseResetPassword,
   updateUserProfile,
   updatePassword as firebaseUpdatePassword,
+  getCurrentUserIdToken,
 } from '@/lib/firebase/auth';
 
 interface AuthContextType {
@@ -34,6 +35,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updateProfile: (data: Partial<User>) => Promise<void>;
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  getIdToken: () => Promise<string | null>;
   clearError: () => void;
 }
 
@@ -92,7 +94,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await firebaseSignIn(email, password);
       setUser(userData);
       toast.success('Signed in successfully');
-      router.push(userData.role === 'admin' ? '/admin/dashboard' : '/client/dashboard');
+      
+      // Redirect based on user role
+      if (userData.role === 'admin') {
+        router.push('/admin/dashboard');
+      } else if (userData.role === 'employee') {
+        router.push('/employee/dashboard');
+      } else if (userData.role === 'consultant') {
+        router.push('/consultant/dashboard');
+      } else {
+        router.push('/client/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Sign in failed'));
       toast.error(err instanceof Error ? err.message : 'Sign in failed');
@@ -126,7 +138,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const userData = await firebaseSignInWithGoogle();
       setUser(userData);
       toast.success('Signed in with Google successfully');
-      router.push(userData.role === 'admin' ? '/admin/dashboard' : '/client/dashboard');
+      
+      // Redirect based on user role
+      if (userData.role === 'admin') {
+        router.push('/admin/dashboard');
+      } else if (userData.role === 'employee') {
+        router.push('/employee/dashboard');
+      } else if (userData.role === 'consultant') {
+        router.push('/consultant/dashboard');
+      } else {
+        router.push('/client/dashboard');
+      }
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Google sign in failed'));
       toast.error(err instanceof Error ? err.message : 'Google sign in failed');
@@ -201,6 +223,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleGetIdToken = async () => {
+    try {
+      if (!user) return null;
+      return await getCurrentUserIdToken();
+    } catch (err) {
+      console.error('Error getting ID token:', err);
+      return null;
+    }
+  };
+
   const value = {
     user,
     isLoading,
@@ -212,6 +244,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     resetPassword: handleResetPassword,
     updateProfile: handleUpdateProfile,
     updatePassword: handleUpdatePassword,
+    getIdToken: handleGetIdToken,
     clearError,
   };
 

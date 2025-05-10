@@ -19,6 +19,7 @@ export default function AuthPage() {
             src="/images/pexels-n-voitkevich-6863260.jpg"
             alt="Professional business meeting"
             fill
+            sizes="100vw"
             className="object-cover"
             priority
             quality={95}
@@ -35,7 +36,7 @@ export default function AuthPage() {
                 alt="SKS Consulting Logo"
                 width={45}
                 height={45}
-                className="h-10 w-auto"
+                style={{ width: 'auto', height: '40px' }}
                 priority
               />
               <span className="text-2xl font-bold tracking-tight">Consulting Firm</span>
@@ -93,7 +94,7 @@ export default function AuthPage() {
                 alt="SKS Consulting Logo"
                 width={45}
                 height={45}
-                className="h-10 w-auto"
+                style={{ width: 'auto', height: '40px' }}
                 priority
               />
               <span className="text-2xl font-bold text-gray-900">Consulting Firm</span>

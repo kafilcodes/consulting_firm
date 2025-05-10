@@ -15,7 +15,6 @@ import {
   signInWithEmailLink,
   GoogleAuthProvider,
   type UserCredential,
-  getIdToken,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, Timestamp, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db, googleProvider } from './config';
@@ -57,7 +56,24 @@ export const handleAuthToken = async (firebaseUser: FirebaseUser) => {
 
     const token = await firebaseUser.getIdToken();
     const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-    const role = userDoc.exists() ? userDoc.data().role : 'client';
+    
+    // Ensure we have a valid role and normalize it
+    let role = 'client'; // Default role
+    
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      if (userData.role) {
+        role = String(userData.role).toLowerCase().trim();
+      }
+      
+      // Validate role is one of our accepted values
+      if (!['client', 'admin', 'employee', 'consultant'].includes(role)) {
+        console.warn(`Invalid role "${role}" detected for user ${firebaseUser.uid}, defaulting to "client"`);
+        role = 'client';
+      }
+    }
+    
+    console.log(`Setting auth token for user ${firebaseUser.uid} with role: ${role}`);
 
     const response = await fetch('/api/auth/token', {
       method: 'POST',
@@ -445,4 +461,17 @@ export const updateAuthCookies = async (token: string | null, role: string | nul
     // This prevents authentication failures from blocking the app from loading
     // The user might need to log in again, but the app will still function
   }
-}; 
+};
+
+// Rename to avoid naming conflict with imported getIdToken
+export async function getCurrentUserIdToken(): Promise<string | null> {
+  try {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return null;
+    
+    return await currentUser.getIdToken(true); // Force refresh the token
+  } catch (error) {
+    console.error('Error getting ID token:', error);
+    return null;
+  }
+} 

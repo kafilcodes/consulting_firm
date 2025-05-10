@@ -13,6 +13,7 @@ import { CheckoutForm } from '@/components/client/checkout-form';
 import { useToast } from '@/components/ui/use-toast';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import { getServiceById } from '@/lib/data/services-data';
 
 // Animation variants
 const containerVariants = {
@@ -72,7 +73,6 @@ export default function CheckoutPage() {
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
-  const [paymentMethod, setPaymentMethod] = useState('razorpay'); // Default to Razorpay
 
   useEffect(() => {
     const fetchServiceData = async () => {
@@ -100,20 +100,20 @@ export default function CheckoutPage() {
           });
           
           // Calculate totals
-          const servicePrice = serviceData.price || 0;
+          const servicePrice = serviceData.price?.amount || 0;
           const calculatedTax = servicePrice * 0.18; // 18% GST
           
           setSubtotal(servicePrice);
           setTax(calculatedTax);
           setTotal(servicePrice + calculatedTax);
         } else {
-          // Fallback to mock data
-          const mockService = serviceMockData.find(s => s.id === serviceId);
+          // Fallback to mock data from services-data.ts
+          const mockService = getServiceById(serviceId);
           if (mockService) {
             setService(mockService);
             
             // Calculate totals
-            const servicePrice = mockService.price || 0;
+            const servicePrice = mockService.price?.amount || 0;
             const calculatedTax = servicePrice * 0.18; // 18% GST
             
             setSubtotal(servicePrice);
@@ -210,10 +210,10 @@ export default function CheckoutPage() {
                 <div className="bg-accent/20 p-4 rounded-lg">
                   <div className="flex justify-between items-start">
                     <div className="space-y-1">
-                      <h3 className="font-medium">{service.name}</h3>
-                      <p className="text-sm text-muted-foreground line-clamp-2">{service.description}</p>
+                      <h3 className="font-medium">{service?.name}</h3>
+                      <p className="text-sm text-muted-foreground line-clamp-2">{service?.description || service?.shortDescription}</p>
                     </div>
-                    <p className="font-medium">${service.price?.toFixed(2)}</p>
+                    <p className="font-medium">₹{subtotal.toFixed(2)}</p>
                   </div>
                 </div>
                 
@@ -222,11 +222,11 @@ export default function CheckoutPage() {
                 <div className="space-y-2">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Subtotal</span>
-                    <span>${subtotal.toFixed(2)}</span>
+                    <span>₹{subtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Tax (18% GST)</span>
-                    <span>${tax.toFixed(2)}</span>
+                    <span>₹{tax.toFixed(2)}</span>
                   </div>
                 </div>
                 
@@ -234,7 +234,7 @@ export default function CheckoutPage() {
                 
                 <div className="flex justify-between font-bold">
                   <span>Total</span>
-                  <span>${total.toFixed(2)}</span>
+                  <span>₹{total.toFixed(2)}</span>
                 </div>
               </div>
               

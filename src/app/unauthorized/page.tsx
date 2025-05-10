@@ -1,35 +1,68 @@
-import Link from 'next/link'
-import { AlertCircle } from 'lucide-react'
+'use client';
+
+import React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { AlertCircle, ArrowLeft, Home } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { useAppSelector } from '@/store/hooks';
 
 export default function UnauthorizedPage() {
+  const router = useRouter();
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // Determine the appropriate dashboard based on user role
+  const getDashboardPath = () => {
+    if (!user) return '/auth/sign-in';
+    
+    const role = user.role?.toLowerCase() || '';
+    
+    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'employee') return '/employee/dashboard';
+    if (role === 'consultant') return '/consultant/dashboard';
+    if (role === 'client') return '/client/dashboard';
+    
+    return '/';
+  };
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-6 py-16">
-      <div className="mx-auto flex max-w-2xl flex-col items-center text-center">
-        <div className="rounded-full bg-red-100 p-3">
-          <AlertCircle className="h-10 w-10 text-red-600" />
+    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="max-w-md w-full bg-white shadow-lg rounded-lg p-8 text-center"
+      >
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
+          <AlertCircle className="h-8 w-8 text-red-600" />
         </div>
-        <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
-          Access Denied
-        </h1>
-        <p className="mt-4 text-lg text-gray-600">
-          You don't have permission to access this page. Please contact your administrator if you
-          believe this is an error.
+        
+        <h1 className="mt-5 text-2xl font-bold tracking-tight text-gray-900">Access Denied</h1>
+        
+        <p className="mt-3 text-gray-600">
+          You don't have permission to access this page. Please contact your administrator if you believe this is an error.
         </p>
-        <div className="mt-8 flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0">
-          <Link
-            href="/"
-            className="inline-flex items-center justify-center rounded-md bg-blue-600 px-5 py-2.5 text-sm font-medium text-white shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+        
+        <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
+          <Button
+            variant="outline"
+            className="flex items-center gap-2"
+            onClick={() => router.back()}
           >
-            Go to Home
-          </Link>
-          <Link
-            href="/auth/signin"
-            className="inline-flex items-center justify-center rounded-md border border-gray-300 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            <ArrowLeft className="h-4 w-4" />
+            Go Back
+          </Button>
+          
+          <Button
+            className="flex items-center gap-2"
+            onClick={() => router.push(getDashboardPath())}
           >
-            Sign In
-          </Link>
+            <Home className="h-4 w-4" />
+            Go to Dashboard
+          </Button>
         </div>
-      </div>
+      </motion.div>
     </div>
-  )
+  );
 } 

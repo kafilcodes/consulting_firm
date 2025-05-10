@@ -240,23 +240,24 @@ export default function Home() {
             router.push('/admin/dashboard');
           } else if (role === 'client') {
             router.push('/client/dashboard');
-          } else if (role === 'consultant' || role === 'employee') {
+          } else if (role === 'consultant') {
             router.push('/consultant/dashboard');
+          } else if (role === 'employee') {
+            router.push('/employee/dashboard');
           } else {
             // Default to client dashboard if role is not specified
             router.push('/client/dashboard');
           }
         } catch (err) {
           console.error('Home: Redirection error', err);
-          // Stay on home page if redirection fails
         }
-      }, 300);
+      }, 500);
       
       return () => clearTimeout(timer);
-    } catch (err) {
-      console.error('Home: Auth effect error', err);
+    } catch (error) {
+      console.error('Home: Redirection setup error', error);
     }
-  }, [user, isInitialized, router]);
+  }, [isInitialized, user, router]);
 
   // Global application loading state
   if (!isClient || (!isInitialized && isLoading)) {
@@ -444,10 +445,10 @@ export default function Home() {
                         src={heroImages[currentImage].url}
                         alt={heroImages[currentImage].alt}
                         fill
+                        sizes="(max-width: 768px) 100vw, 50vw"
                         className="object-cover object-center"
                         quality={90}
                         priority
-                        sizes="(max-width: 768px) 100vw, 50vw"
                       />
                       <div className="absolute inset-0 bg-gradient-to-br from-blue-900/40 via-indigo-900/20 to-transparent"></div>
                     </motion.div>
@@ -495,6 +496,7 @@ export default function Home() {
                         alt={company.name}
                         width={160}
                         height={48}
+                        sizes="160px"
                         className="object-contain grayscale hover:grayscale-0 transition-all duration-300"
                       />
                     </div>

@@ -25,11 +25,32 @@ export interface RazorpayPaymentResponse {
 
 // Checkout options interface
 export interface RazorpayCheckoutOptions {
+  key: string;
   amount: number; // in paise
+  currency: string;
+  order_id: string;
+  name: string;
+  description: string;
+  prefill?: {
+    name?: string;
+    email?: string;
+    contact?: string;
+  };
+  notes?: Record<string, string>;
+  theme?: {
+    color?: string;
+  };
+  handler?: (response: RazorpayPaymentResponse) => void;
+}
+
+// Payment options for our app
+export interface PaymentOptions {
+  amount: number;
   currency: string;
   orderId: string;
   name: string;
   description: string;
+  image?: string;
   prefill?: {
     name?: string;
     email?: string;
@@ -85,15 +106,7 @@ export const initializeRazorpayCheckout = (
 
       // Create Razorpay instance
       const razorpay = new window.Razorpay({
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_yourkeyhere', // Use test key or environment variable
-        amount: options.amount,
-        currency: options.currency,
-        name: options.name,
-        description: options.description,
-        order_id: options.orderId,
-        prefill: options.prefill,
-        notes: options.notes,
-        theme: options.theme || { color: '#3182ce' },
+        ...options,
         handler: function (response: RazorpayPaymentResponse) {
           resolve(response);
         },
@@ -124,7 +137,7 @@ export const formatAmountForRazorpay = (amount: number): number => {
 
 /**
  * Format amount from Razorpay (converts from paise to rupees)
- * @param amount - Amount in paise
+ * @param amount - Amount in rupees
  * @returns Amount in rupees
  */
 export const formatAmountFromRazorpay = (amount: number): number => {
@@ -145,4 +158,134 @@ export const verifyPaymentSignature = (
   console.log('Payment verification should be implemented server-side');
   // Placeholder for demo purposes
   return true;
-}; 
+};
+
+/**
+ * Razorpay utility functions
+ */
+
+// Define types for Razorpay responses and options
+export interface RazorpayOrderCreateOptions {
+  amount: number;
+  currency: string;
+  receipt: string;
+  payment_capture?: number;
+  notes?: Record<string, string>;
+}
+
+export interface RazorpayOrder {
+  id: string;
+  entity: string;
+  amount: number;
+  amount_paid: number;
+  amount_due: number;
+  currency: string;
+  receipt: string;
+  status: string;
+  attempts: number;
+  notes: Record<string, string>;
+  created_at: number;
+}
+
+/**
+ * Generate a short, unique receipt ID for Razorpay
+ * Ensures the ID is shorter than 40 characters as required by Razorpay
+ */
+export function generateReceiptId(prefix = 'rcpt'): string {
+  const timestamp = Date.now().toString().slice(-8);
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  return `${prefix}_${timestamp}_${randomStr}`;
+}
+
+/**
+ * Generate Razorpay checkout options for the frontend
+ */
+export function generateRazorpayOptions(
+  orderId: string,
+  amount: number, 
+  currency: string,
+  keyId: string,
+  user: any, 
+  serviceName: string
+) {
+  return {
+    key: keyId,
+    amount: amount,
+    currency: currency,
+    name: 'SKS Consulting',
+    description: `Payment for ${serviceName}`,
+    order_id: orderId,
+    prefill: {
+      name: user?.displayName || '',
+      email: user?.email || '',
+      contact: user?.phoneNumber || ''
+    },
+    theme: {
+      color: '#6366F1'
+    }
+  };
+}
+
+/**
+ * Create a Razorpay order via server API
+ */
+export async function createRazorpayOrder(
+  amount: number, 
+  currency: string, 
+  orderId: string,
+  token: string
+): Promise<{id: string, amount: number, currency: string, key_id: string}> {
+  const response = await fetch('/api/razorpay/create-order', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      amount,
+      currency,
+      orderId
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(
+      errorData.error || 'Failed to create payment order'
+    );
+  }
+
+  return await response.json();
+}
+
+/**
+ * Verify a Razorpay payment
+ */
+export async function verifyRazorpayPayment(
+  paymentId: string, 
+  orderId: string,
+  signature: string, 
+  token: string
+): Promise<{success: boolean}> {
+  const response = await fetch('/api/razorpay/verify-payment', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify({
+      razorpay_payment_id: paymentId,
+      razorpay_order_id: orderId,
+      razorpay_signature: signature
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(
+      errorData.error || 'Failed to verify payment'
+    );
+  }
+
+  return await response.json();
+}

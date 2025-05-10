@@ -1,41 +1,28 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useRouter, useParams } from 'next/navigation';
-import Image from 'next/image';
-import Link from 'next/link';
+import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { 
-  Calendar, 
-  CheckCircle, 
-  FileText, 
-  ArrowLeft, 
-  ChevronRight, 
-  Clock, 
-  Wallet, 
-  AlertCircle,
-  Info,
-  Loader2
-} from 'lucide-react';
+import { ArrowLeft, ShoppingCart, Clock, FileText, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
+import Link from 'next/link';
+import Image from 'next/image';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { toast } from 'sonner';
 
 import { getServiceById, getRelatedServices, getRequiredDocumentsForService } from '@/lib/data/services-data';
-import { Service } from '@/types';
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const [service, setService] = useState<Service | null>(null);
-  const [relatedServices, setRelatedServices] = useState<Service[]>([]);
-  const [requiredDocuments, setRequiredDocuments] = useState<any[]>([]);
+  const [service, setService] = useState<any>(null);
+  const [relatedServices, setRelatedServices] = useState<any[]>([]);
+  const [requiredDocuments, setRequiredDocuments] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
   const serviceId = params.id as string;
@@ -44,10 +31,8 @@ export default function ServiceDetailPage() {
     const fetchServiceDetails = async () => {
       setIsLoading(true);
       try {
-        // In a real app, this would be API calls
+        // Get service details from mock data or API
         const serviceData = getServiceById(serviceId);
-        const relatedServicesData = getRelatedServices(serviceId);
-        const requiredDocsData = getRequiredDocumentsForService(serviceId);
         
         if (!serviceData) {
           toast.error('Service not found');
@@ -56,8 +41,14 @@ export default function ServiceDetailPage() {
         }
         
         setService(serviceData);
-        setRelatedServices(relatedServicesData);
-        setRequiredDocuments(requiredDocsData);
+        
+        // Get related services
+        const related = getRelatedServices(serviceId);
+        setRelatedServices(related);
+        
+        // Get required documents
+        const documents = getRequiredDocumentsForService(serviceId);
+        setRequiredDocuments(documents);
       } catch (error) {
         console.error('Error fetching service details:', error);
         toast.error('Failed to load service details');
@@ -69,53 +60,25 @@ export default function ServiceDetailPage() {
     fetchServiceDetails();
   }, [serviceId, router]);
 
-  // Format price with billing type
-  const formatPrice = (price: {amount: number, currency: string, billingType: 'one-time' | 'monthly' | 'yearly'}) => {
-    const formatter = new Intl.NumberFormat('en-IN', {
+  const handleOrderNow = () => {
+    router.push(`/client/services/${serviceId}/order`);
+  };
+
+  // Format currency
+  const formatCurrency = (amount: number, currency: string) => {
+    return new Intl.NumberFormat('en-IN', {
       style: 'currency',
-      currency: price.currency,
+      currency: currency || 'INR',
       maximumFractionDigits: 0
-    });
-    
-    return `${formatter.format(price.amount)}${price.billingType !== 'one-time' ? ` / ${price.billingType}` : ''}`;
+    }).format(amount);
   };
 
-  // Handle direct service order
-  const handleOrderService = (serviceId: string) => {
-    router.push(`/client/checkout?serviceId=${serviceId}`);
-  };
-
-  // Loading skeleton UI
   if (isLoading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8 flex items-center gap-2">
-            <Skeleton className="h-10 w-28" />
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="md:col-span-2 space-y-6">
-              <Skeleton className="h-64 w-full rounded-lg" />
-              <Skeleton className="h-12 w-3/4" />
-              <Skeleton className="h-6 w-full" />
-              <Skeleton className="h-6 w-5/6" />
-              <Skeleton className="h-6 w-4/6" />
-              
-              <div className="space-y-4 mt-8">
-                {[...Array(5)].map((_, i) => (
-                  <div key={i} className="flex gap-3">
-                    <Skeleton className="h-6 w-6 rounded-full" />
-                    <Skeleton className="h-6 w-full" />
-                  </div>
-                ))}
-              </div>
-            </div>
-            
-            <div>
-              <Skeleton className="h-96 w-full rounded-lg" />
-            </div>
-          </div>
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-muted-foreground">Loading service details...</p>
         </div>
       </div>
     );
@@ -123,28 +86,25 @@ export default function ServiceDetailPage() {
 
   if (!service) {
     return (
-      <div className="container mx-auto px-4 py-20">
-        <Alert variant="destructive" className="max-w-lg mx-auto">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>Service not found</AlertTitle>
-          <AlertDescription>
-            We couldn't find the service you're looking for. It may have been removed or the URL may be incorrect.
-          </AlertDescription>
-          <Button 
-            variant="outline" 
-            className="mt-4 w-full"
-            asChild
-          >
-            <Link href="/client/services">Browse All Services</Link>
+      <div className="container mx-auto px-4 py-16">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <h2 className="text-2xl font-bold">Service not found</h2>
+          <p className="text-muted-foreground">The service you are looking for does not exist or has been removed.</p>
+          <Button asChild>
+            <Link href="/client/services">Browse Services</Link>
           </Button>
-        </Alert>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <div className="max-w-7xl mx-auto">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         {/* Back button */}
         <Button 
           variant="ghost" 
@@ -157,289 +117,206 @@ export default function ServiceDetailPage() {
             Back to Services
           </Link>
         </Button>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Main content */}
           <div className="lg:col-span-2">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
-            >
-              {/* Service image */}
-              {service.image && (
-                <div className="relative h-72 md:h-96 w-full rounded-lg overflow-hidden mb-6">
-                  <Image
-                    src={service.image}
-                    alt={service.name}
-                    fill
-                    className="object-cover"
-                  />
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-6">
-                    <Badge className="mb-2" variant="secondary">
-                      {serviceCategories.find(c => c.id === service.category)?.name || service.category}
-                    </Badge>
-                    <h1 className="text-2xl md:text-3xl font-bold text-white">{service.name}</h1>
-                  </div>
+            {/* Service header */}
+            <div className="mb-8">
+              <h1 className="text-3xl font-bold mb-3">{service.name}</h1>
+              <p className="text-lg text-muted-foreground mb-4">{service.shortDescription}</p>
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{service.serviceType === 'plan' ? 'Subscription Plan' : 'One-time Service'}</Badge>
+                {service.category && (
+                  <Badge variant="secondary">
+                    {service.category.charAt(0).toUpperCase() + service.category.slice(1).replace('-', ' ')}
+                  </Badge>
+                )}
+                <Badge variant="outline" className="flex items-center gap-1">
+                  <Clock className="h-3 w-3" />
+                  {service.estimatedDuration}
+                </Badge>
+              </div>
+            </div>
+
+            {/* Service image */}
+            <div className="mb-8 relative h-64 md:h-96 w-full rounded-lg overflow-hidden">
+              {service.image ? (
+                <Image
+                  src={service.image}
+                  alt={service.name}
+                  fill
+                  sizes="(max-width: 768px) 100vw, 66vw"
+                  className="object-cover"
+                />
+              ) : (
+                <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                  <FileText className="h-16 w-16 text-gray-400" />
                 </div>
               )}
-              
-              {/* Tabs navigation */}
-              <Tabs value={activeTab} onValueChange={setActiveTab}>
+            </div>
+
+            {/* Service tabs */}
+            <div className="mb-8">
+              <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
-                  <TabsTrigger value="requirements">Requirements</TabsTrigger>
-                  <TabsTrigger value="documents">Required Documents</TabsTrigger>
+                  <TabsTrigger value="process">Process</TabsTrigger>
+                  <TabsTrigger value="faq">FAQ</TabsTrigger>
                 </TabsList>
                 
-                {/* Overview tab */}
-                <TabsContent value="overview" className="pt-6">
-                  <div className="prose prose-gray max-w-none">
-                    <h2 className="text-xl font-semibold mb-4">Service Description</h2>
-                    <p className="text-gray-700 mb-6">{service.description}</p>
+                <div className="mt-6">
+                  <TabsContent value="overview" className="space-y-6">
+                    <div className="prose max-w-none" dangerouslySetInnerHTML={{ __html: service.description }} />
                     
-                    <h3 className="text-lg font-semibold mb-3">Key Features</h3>
-                    <ul className="space-y-3 mb-6">
-                      {service.features.map((feature, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
-                          <span>{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    
-                    <h3 className="text-lg font-semibold mb-3">Deliverables</h3>
-                    <ul className="space-y-3 mb-6">
-                      {service.deliverables.map((deliverable, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <FileText className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
-                          <span>{deliverable}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    
-                    <div className="flex flex-col md:flex-row gap-6 mt-8">
-                      <div className="flex items-center gap-3">
-                        <Clock className="h-6 w-6 text-gray-500" />
-                        <div>
-                          <p className="text-sm text-gray-500">Estimated Duration</p>
-                          <p className="font-medium">{service.estimatedDuration}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <Calendar className="h-6 w-6 text-gray-500" />
-                        <div>
-                          <p className="text-sm text-gray-500">Billing</p>
-                          <p className="font-medium">{service.price.billingType === 'one-time' ? 'One-time payment' : `${service.price.billingType} subscription`}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center gap-3">
-                        <Wallet className="h-6 w-6 text-gray-500" />
-                        <div>
-                          <p className="text-sm text-gray-500">Price</p>
-                          <p className="font-medium">{formatPrice(service.price)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-                
-                {/* Requirements tab */}
-                <TabsContent value="requirements" className="pt-6">
-                  <div className="prose prose-gray max-w-none">
-                    <h2 className="text-xl font-semibold mb-4">Service Requirements</h2>
-                    <p className="text-gray-700 mb-6">
-                      To provide this service efficiently, we require the following information and resources:
-                    </p>
-                    
-                    <ul className="space-y-3 mb-6">
-                      {service.requirements.map((requirement, index) => (
-                        <li key={index} className="flex items-start gap-2">
-                          <Info className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
-                          <span>{requirement}</span>
-                        </li>
-                      ))}
-                    </ul>
-                    
-                    <Alert className="mt-6">
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>Important Note</AlertTitle>
-                      <AlertDescription>
-                        Providing these requirements promptly will help us deliver the service more efficiently and avoid delays.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </TabsContent>
-                
-                {/* Documents tab */}
-                <TabsContent value="documents" className="pt-6">
-                  <div className="prose prose-gray max-w-none">
-                    <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
-                    <p className="text-gray-700 mb-6">
-                      The following documents will be required for this service. You can upload these after placing an order.
-                    </p>
-                    
-                    {requiredDocuments.length > 0 ? (
-                      <div className="space-y-4">
-                        {requiredDocuments.map((doc, index) => (
-                          <Card key={index}>
-                            <CardHeader className="py-4">
-                              <CardTitle className="text-base flex items-center gap-2">
-                                <FileText className="h-5 w-5 text-blue-500" />
-                                {doc.name}
-                                {doc.required && (
-                                  <Badge variant="destructive" className="ml-2 text-xs">Required</Badge>
-                                )}
-                              </CardTitle>
-                            </CardHeader>
-                            <CardContent className="py-2">
-                              <p className="text-sm text-gray-600">{doc.description}</p>
-                            </CardContent>
-                          </Card>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Features</h3>
+                      <ul className="space-y-2">
+                        {service.features.map((feature: string, index: number) => (
+                          <li key={index} className="flex items-start gap-2">
+                            <CheckCircle className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>{feature}</span>
+                          </li>
                         ))}
-                      </div>
-                    ) : (
-                      <p className="text-gray-500 italic">No specific documents required for this service.</p>
-                    )}
+                      </ul>
+                    </div>
                     
-                    <Alert className="mt-6">
-                      <Info className="h-4 w-4" />
-                      <AlertTitle>Document Instructions</AlertTitle>
-                      <AlertDescription>
-                        All documents should be clear, legible, and in PDF, JPG, or PNG format. Maximum file size is 5MB per document.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-                </TabsContent>
+                    <div>
+                      <h3 className="text-xl font-semibold mb-4">Required Documents</h3>
+                      {requiredDocuments.length > 0 ? (
+                        <ul className="space-y-2">
+                          {requiredDocuments.map((doc, index) => (
+                            <li key={index} className="flex items-start gap-2">
+                              <FileText className="h-5 w-5 text-blue-500 mt-0.5 flex-shrink-0" />
+                              <span>{doc}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="text-muted-foreground">No specific documents required</p>
+                      )}
+                    </div>
+                  </TabsContent>
+                  
+                  <TabsContent value="process" className="space-y-6">
+                    <h3 className="text-xl font-semibold mb-4">Service Process</h3>
+                    <ol className="relative border-l border-gray-200">
+                      {service.process && service.process.map((step: any, index: number) => (
+                        <li key={index} className="mb-10 ml-6">
+                          <span className="absolute flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full -left-4 ring-4 ring-white">
+                            <span className="text-blue-800 font-medium">{index + 1}</span>
+                          </span>
+                          <h3 className="flex items-center mb-1 text-lg font-semibold text-gray-900">
+                            {step.title}
+                          </h3>
+                          <p className="mb-4 text-base font-normal text-gray-500">
+                            {step.description}
+                          </p>
+                        </li>
+                      ))}
+                    </ol>
+                  </TabsContent>
+                  
+                  <TabsContent value="faq" className="space-y-6">
+                    <h3 className="text-xl font-semibold mb-4">Frequently Asked Questions</h3>
+                    {service.faqs && service.faqs.length > 0 ? (
+                      <Accordion type="single" collapsible className="w-full">
+                        {service.faqs.map((faq: any, index: number) => (
+                          <AccordionItem key={index} value={`item-${index}`}>
+                            <AccordionTrigger>{faq.question}</AccordionTrigger>
+                            <AccordionContent>{faq.answer}</AccordionContent>
+                          </AccordionItem>
+                        ))}
+                      </Accordion>
+                    ) : (
+                      <p className="text-muted-foreground">No FAQs available for this service</p>
+                    )}
+                  </TabsContent>
+                </div>
               </Tabs>
-            </motion.div>
+            </div>
+
+            {/* Related services */}
+            {relatedServices.length > 0 && (
+              <div className="mt-12">
+                <h3 className="text-xl font-semibold mb-6">Related Services</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {relatedServices.map((relatedService) => (
+                    <Card key={relatedService.id} className="overflow-hidden">
+                      <Link href={`/client/services/${relatedService.id}`} className="block">
+                        <div className="relative h-40 w-full">
+                          {relatedService.image ? (
+                            <Image
+                              src={relatedService.image}
+                              alt={relatedService.name}
+                              fill
+                              sizes="(max-width: 768px) 100vw, 33vw"
+                              className="object-cover"
+                            />
+                          ) : (
+                            <div className="h-full w-full bg-gray-200 flex items-center justify-center">
+                              <FileText className="h-8 w-8 text-gray-400" />
+                            </div>
+                          )}
+                        </div>
+                        <CardContent className="p-4">
+                          <h4 className="font-semibold text-lg mb-1 line-clamp-1">{relatedService.name}</h4>
+                          <p className="text-muted-foreground text-sm line-clamp-2">{relatedService.shortDescription}</p>
+                        </CardContent>
+                      </Link>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
-          
+
           {/* Sidebar */}
           <div className="lg:col-span-1">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.2 }}
-            >
-              {/* Order card */}
-              <Card className="sticky top-6">
+            <div className="sticky top-24">
+              <Card>
                 <CardHeader>
                   <CardTitle>Service Summary</CardTitle>
-                  <CardDescription>Review and purchase this service</CardDescription>
+                  <CardDescription>Key information about this service</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Price:</span>
-                    <span className="font-semibold">{formatPrice(service.price)}</span>
+                  <div>
+                    <p className="text-muted-foreground text-sm">Price</p>
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(service.price.amount, service.price.currency)}
+                      {service.price.billingCycle && <span className="text-sm font-normal text-muted-foreground"> / {service.price.billingCycle}</span>}
+                    </p>
                   </div>
                   
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Duration:</span>
-                    <span>{service.estimatedDuration}</span>
+                  <Separator />
+                  
+                  <div>
+                    <p className="text-muted-foreground text-sm">Estimated Time</p>
+                    <p className="font-medium">{service.estimatedDuration}</p>
                   </div>
                   
-                  <Separator className="my-2" />
+                  <Separator />
                   
-                  <div className="text-sm">
-                    <p className="mb-2 font-medium">This service includes:</p>
-                    <ul className="space-y-2">
-                      {service.features.slice(0, 4).map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2">
-                          <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
-                          <span className="text-gray-600">{feature}</span>
-                        </li>
-                      ))}
-                      {service.features.length > 4 && (
-                        <li className="text-blue-600 text-sm font-medium">
-                          + {service.features.length - 4} more features
-                        </li>
-                      )}
-                    </ul>
+                  <div>
+                    <p className="text-muted-foreground text-sm">Category</p>
+                    <p className="font-medium">{service.category ? service.category.charAt(0).toUpperCase() + service.category.slice(1).replace('-', ' ') : 'General'}</p>
                   </div>
                 </CardContent>
-                <CardFooter className="flex flex-col gap-3">
+                <CardFooter>
                   <Button 
-                    className="w-full"
+                    className="w-full" 
                     size="lg"
-                    onClick={() => handleOrderService(service.id)}
+                    onClick={handleOrderNow}
                   >
-                    <div className="flex items-center">
-                      Order Service
-                    </div>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    asChild
-                  >
-                    <Link href="/client/support">
-                      Request Consultation
-                    </Link>
+                    <ShoppingCart className="mr-2 h-4 w-4" />
+                    Order Now
                   </Button>
                 </CardFooter>
               </Card>
-            </motion.div>
+            </div>
           </div>
         </div>
-        
-        {/* Related services */}
-        {relatedServices.length > 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="mt-16"
-          >
-            <h2 className="text-2xl font-bold mb-6">Related Services</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {relatedServices.map((relatedService) => (
-                <Card key={relatedService.id} className="hover:shadow-md transition-shadow duration-300">
-                  <div className="relative h-40 w-full overflow-hidden">
-                    {relatedService.image ? (
-                      <Image
-                        src={relatedService.image}
-                        alt={relatedService.name}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="h-40 bg-gray-200" />
-                    )}
-                    <div className="absolute top-2 right-2">
-                      <Badge variant="secondary" className="bg-black/70 text-white">
-                        {formatPrice(relatedService.price)}
-                      </Badge>
-                    </div>
-                  </div>
-                  <CardHeader>
-                    <CardTitle className="line-clamp-1">{relatedService.name}</CardTitle>
-                    <CardDescription className="line-clamp-2">{relatedService.shortDescription}</CardDescription>
-                  </CardHeader>
-                  <CardFooter className="flex justify-between border-t pt-4">
-                    <Button 
-                      variant="outline" 
-                      asChild
-                    >
-                      <Link href={`/client/services/${relatedService.id}`}>
-                        View Details
-                      </Link>
-                    </Button>
-                    <Button
-                      onClick={() => handleOrderService(relatedService.id)}
-                    >
-                      Order Now
-                    </Button>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </div>
+      </motion.div>
     </div>
   );
-} 
+}

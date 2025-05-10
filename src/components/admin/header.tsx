@@ -29,7 +29,8 @@ export function AdminHeader() {
                     alt="SKS Admin"
                     width={40}
                     height={40}
-                    className="h-8 w-auto mr-2"
+                    style={{ width: 'auto', height: '32px' }}
+                    className="mr-2"
                     priority
                   />
                   <span className="text-base font-bold text-gray-800">

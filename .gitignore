@@ -50,6 +50,7 @@ firebaseConfig.js
 **/firebaseConfig.*
 .firebaserc
 firebase.json
+/src/lib/firebase/service-account.json
 
 # IDE
 .idea/

@@ -7,10 +7,10 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   experimental: {
+    optimizeCss: true,
     serverActions: {
       bodySizeLimit: '2mb'
     },
-    optimizeCss: true,
   },
   images: {
     remotePatterns: [
