@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAppSelector } from '@/store/hooks';
 import { toast } from 'sonner';
@@ -33,6 +33,7 @@ export function ProtectedRoute({
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading, isInitialized } = useAppSelector(state => state.auth);
+  const [hasAttemptedRedirect, setHasAttemptedRedirect] = useState(false);
   
   const isAuthenticated = !!user;
   const userRole = user?.role?.toLowerCase() || '';
@@ -46,10 +47,20 @@ export function ProtectedRoute({
       return;
     }
     
+    // Prevent multiple redirect attempts
+    if (hasAttemptedRedirect) {
+      return;
+    }
+    
     // Check if authentication is required but user is not authenticated
     if (authRequired && !isAuthenticated && !isLoading) {
+      setHasAttemptedRedirect(true);
+      // Store the current location for redirecting back after auth
       const encodedCurrentPath = encodeURIComponent(pathname);
-      router.push(`${redirectTo}?callbackUrl=${encodedCurrentPath}`);
+      // Prevent redirect loop by checking if we're already on the auth page
+      if (!pathname.includes(redirectTo)) {
+        router.push(`${redirectTo}?callbackUrl=${encodedCurrentPath}`);
+      }
       return;
     }
 
@@ -60,6 +71,7 @@ export function ProtectedRoute({
       !allowedRoles.includes(userRole) &&
       !showUnauthorizedPage
     ) {
+      setHasAttemptedRedirect(true);
       console.log(`Access denied: User with role "${userRole}" attempted to access route restricted to ${allowedRoles.join(', ')}`);
       toast.error(`You don't have permission to access this page. Redirecting...`);
       router.push('/unauthorized');
@@ -75,10 +87,11 @@ export function ProtectedRoute({
     pathname, 
     isLoading, 
     isInitialized,
-    showUnauthorizedPage
+    showUnauthorizedPage,
+    hasAttemptedRedirect
   ]);
 
-  // Show nothing while loading or redirecting
+  // Show loading indicator while waiting for auth state
   if (isLoading || !isInitialized) {
     return (
       <div className="flex items-center justify-center w-full h-screen">

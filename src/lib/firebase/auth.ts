@@ -46,51 +46,81 @@ const handleAuthError = (error: any): never => {
   throw new Error(errorMessages[error.code] || 'An error occurred during authentication. Please try again.');
 };
 
-export const handleAuthToken = async (firebaseUser: FirebaseUser) => {
+export const handleAuthToken = async (firebaseUser: FirebaseUser | null) => {
   try {
     if (!firebaseUser) {
-      destroyCookie(null, 'auth-token');
-      destroyCookie(null, 'user-role');
-      return;
+      console.log('handleAuthToken: No user, clearing cookies');
+      destroyCookie(null, 'auth-token', { path: '/' });
+      destroyCookie(null, 'user-role', { path: '/' });
+      return null;
     }
 
-    const token = await firebaseUser.getIdToken();
-    const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
+    // Get the token
+    const token = await firebaseUser.getIdToken(true);
     
-    // Ensure we have a valid role and normalize it
+    // Get user role from Firestore
     let role = 'client'; // Default role
-    
-    if (userDoc.exists()) {
-      const userData = userDoc.data();
-      if (userData.role) {
-        role = String(userData.role).toLowerCase().trim();
-      }
+    try {
+      const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
       
-      // Validate role is one of our accepted values
-      if (!['client', 'admin', 'employee', 'consultant'].includes(role)) {
-        console.warn(`Invalid role "${role}" detected for user ${firebaseUser.uid}, defaulting to "client"`);
-        role = 'client';
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.role) {
+          role = String(userData.role).toLowerCase().trim();
+        }
+        
+        // Validate role is one of our accepted values
+        if (!['client', 'admin', 'employee', 'consultant'].includes(role)) {
+          console.warn(`Invalid role "${role}" detected for user ${firebaseUser.uid}, defaulting to "client"`);
+          role = 'client';
+        }
       }
+    } catch (error) {
+      console.error('Error fetching user role:', error);
+      // Continue with default role if there's an error
     }
     
     console.log(`Setting auth token for user ${firebaseUser.uid} with role: ${role}`);
 
-    const response = await fetch('/api/auth/token', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, role }),
+    // Set cookies client-side first to prevent initial redirect issues
+    setCookie(null, 'auth-token', token, {
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+    });
+    
+    setCookie(null, 'user-role', role, {
+      maxAge: 30 * 24 * 60 * 60, // 30 days
+      path: '/',
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
     });
 
-    if (!response.ok) {
-      throw new Error('Failed to set authentication token');
+    // Then try to set them on the server for SSR
+    try {
+      const response = await fetch('/api/auth/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token, role }),
+      });
+
+      if (!response.ok) {
+        console.warn('Server token endpoint returned non-OK response:', response.status);
+        // We still continue since we've set the cookies client-side
+      }
+    } catch (error) {
+      console.error('Error calling token endpoint:', error);
+      // Continue since we've set the cookies client-side already
     }
 
     return { token, role };
   } catch (error) {
     console.error('Error handling auth token:', error);
-    throw error;
+    // Don't throw error here, just return null to prevent blocking auth flow
+    return null;
   }
 };
 
@@ -372,10 +402,11 @@ export const formatDate = (timestamp: any): string => {
 
 /**
  * Serializes a Firebase user object into our application's User type
+ * and ensures all values are serializable for Redux
  */
 export const serializeUser = async (firebaseUser: any): Promise<any> => {
   if (!firebaseUser) {
-    throw new Error('No user data provided');
+    return null;
   }
   
   try {
@@ -385,54 +416,199 @@ export const serializeUser = async (firebaseUser: any): Promise<any> => {
     const { uid, displayName, email, photoURL, metadata } = firebaseUser;
     
     // Get token for cookie authentication
-    const token = await firebaseUser.getIdToken(true); // Force refresh token
-    
-    // Determine user role - in a real app, you would fetch this from a database
-    // For now, using a simple mapping by email domain or set a default
-    let role = 'client'; // Default role
-    
-    // Example logic for role determination:
-    if (email) {
-      if (email.endsWith('@admin.sks-consulting.com')) {
-        role = 'admin';
-      } else if (email.endsWith('@consultant.sks-consulting.com')) {
-        role = 'consultant';
-      } else if (email === 'admin@example.com' || email === 'admin@test.com') {
-        // For testing purposes
-        role = 'admin';
-      } else if (email === 'consultant@example.com' || email === 'consultant@test.com') {
-        // For testing purposes
-        role = 'consultant';
-      }
+    let token: string | null = null;
+    try {
+      token = await firebaseUser.getIdToken(true); // Force refresh token
+    } catch (tokenError) {
+      console.error('Error getting token:', tokenError);
+      // Continue without token, as we'll try to get it later
     }
     
-    console.log('Assigned role:', role);
+    // Fetch user role from Firestore
+    let role = 'client'; // Default role
+    let firestoreData = null;
     
-    // Format timestamps
-    const createdAt = formatDate(metadata?.creationTime || new Date());
-    const lastSignInTime = formatDate(metadata?.lastSignInTime || new Date());
+    try {
+      // Get user data from Firestore
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        // Ensure we convert Firebase timestamps to serializable values
+        firestoreData = serializeFirestoreData(userData);
+        
+        if (userData.role) {
+          role = String(userData.role).toLowerCase().trim();
+        }
+        
+        // Validate role is one of our accepted values
+        if (!['client', 'admin', 'employee', 'consultant'].includes(role)) {
+          console.warn(`Invalid role "${role}" detected for user ${uid}, defaulting to "client"`);
+          role = 'client';
+        }
+      } else {
+        // If this is a new user, create their document in Firestore
+        // Using simple email check for initial role assignment
+        if (email) {
+          if (email.endsWith('@admin.sks-consulting.com')) {
+            role = 'admin';
+          } else if (email.endsWith('@consultant.sks-consulting.com')) {
+            role = 'consultant';
+          } else if (email.endsWith('@employee.sks-consulting.com')) {
+            role = 'employee';
+          } else if (email === 'admin@example.com' || email === 'admin@test.com') {
+            role = 'admin';
+          } else if (email === 'consultant@example.com' || email === 'consultant@test.com') {
+            role = 'consultant';
+          } else if (email === 'employee@example.com' || email === 'employee@test.com') {
+            role = 'employee';
+          }
+        }
+        
+        // Create user document with assigned role
+        const newUserData = {
+          uid,
+          email,
+          displayName: displayName || email?.split('@')[0] || 'User',
+          photoURL,
+          role,
+          createdAt: serverTimestamp(),
+          lastSignInTime: serverTimestamp(),
+          lastActivityAt: serverTimestamp(),
+        };
+        
+        await setDoc(doc(db, 'users', uid), newUserData);
+        firestoreData = { ...newUserData };
+        // Remove non-serializable timestamps
+        delete firestoreData.createdAt;
+        delete firestoreData.lastSignInTime;
+        delete firestoreData.lastActivityAt;
+      }
+    } catch (firestoreError) {
+      console.error('Error accessing Firestore:', firestoreError);
+      // Continue with default role
+    }
     
-    // Update auth cookies in the backend
-    await updateAuthCookies(token, role);
+    console.log('Assigned role from database:', role);
     
-    // Create serialized user object
+    // Format timestamps for metadata
+    const createdAt = metadata?.creationTime ? new Date(metadata.creationTime).toISOString() : new Date().toISOString();
+    const lastSignInTime = metadata?.lastSignInTime ? new Date(metadata.lastSignInTime).toISOString() : new Date().toISOString();
+    
+    // Update auth cookies in the backend - but don't let this block authentication
+    try {
+      if (token) {
+        await updateAuthCookies(token, role);
+      }
+    } catch (cookieError) {
+      console.error('Error updating auth cookies:', cookieError);
+      // Continue despite cookie errors
+    }
+    
+    // Create serialized user object with only serializable values
     const user = {
       uid,
+      id: uid,
       displayName,
+      name: displayName,
       email,
       photoURL,
       role,
       createdAt,
       lastSignInTime,
+      // Include serialized Firestore data but ensure it's all serializable
+      ...(firestoreData || {}),
     };
     
     console.log('User serialized successfully');
     return user;
   } catch (error) {
     console.error('Error in serializeUser:', error);
-    throw error;
+    // Return basic user info even if there are errors
+    if (firebaseUser && firebaseUser.uid) {
+      return {
+        uid: firebaseUser.uid,
+        id: firebaseUser.uid,
+        displayName: firebaseUser.displayName || 'User',
+        name: firebaseUser.displayName || 'User',
+        email: firebaseUser.email,
+        photoURL: firebaseUser.photoURL,
+        role: 'client', // Default role on error
+      };
+    }
+    return null;
   }
 };
+
+/**
+ * Helper function to convert Firestore data with Timestamps to serializable values
+ */
+function serializeFirestoreData(data: any): any {
+  if (!data) return null;
+  
+  const result: any = {};
+  
+  // Process each field
+  Object.keys(data).forEach(key => {
+    const value = data[key];
+    
+    if (value === null || value === undefined) {
+      result[key] = value;
+    } 
+    // Handle Firestore Timestamp objects
+    else if (typeof value === 'object' && value.toDate && typeof value.toDate === 'function') {
+      try {
+        // Convert to ISO string
+        result[key] = value.toDate().toISOString();
+      } catch (err) {
+        console.warn(`Failed to serialize Timestamp at ${key}:`, err);
+        result[key] = null;
+      }
+    }
+    // Handle Timestamp-like objects with seconds/nanoseconds
+    else if (typeof value === 'object' && value !== null && value.seconds !== undefined) {
+      try {
+        result[key] = new Date(value.seconds * 1000).toISOString();
+      } catch (err) {
+        console.warn(`Failed to serialize seconds-based timestamp at ${key}:`, err);
+        result[key] = null;
+      }
+    }
+    // Handle nested objects recursively
+    else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+      result[key] = serializeFirestoreData(value);
+    }
+    // Handle arrays - check each element for timestamps
+    else if (Array.isArray(value)) {
+      result[key] = value.map(item => {
+        if (typeof item === 'object' && item !== null) {
+          if (item.toDate && typeof item.toDate === 'function') {
+            try {
+              return item.toDate().toISOString();
+            } catch (err) {
+              return null;
+            }
+          } else if (item.seconds !== undefined) {
+            try {
+              return new Date(item.seconds * 1000).toISOString();
+            } catch (err) {
+              return null;
+            }
+          } else {
+            return serializeFirestoreData(item);
+          }
+        }
+        return item;
+      });
+    }
+    // Keep primitive values as is
+    else {
+      result[key] = value;
+    }
+  });
+  
+  return result;
+}
 
 /**
  * Updates authentication cookies on the server-side
@@ -467,11 +643,80 @@ export const updateAuthCookies = async (token: string | null, role: string | nul
 export async function getCurrentUserIdToken(): Promise<string | null> {
   try {
     const currentUser = auth.currentUser;
-    if (!currentUser) return null;
-    
-    return await currentUser.getIdToken(true); // Force refresh the token
+    if (!currentUser) {
+      return null;
+    }
+    return await currentUser.getIdToken(true);
   } catch (error) {
-    console.error('Error getting ID token:', error);
+    console.error('Error getting user ID token:', error);
     return null;
+  }
+}
+
+/**
+ * Get all users (admin only)
+ * Note: Firebase doesn't provide direct access to all users from client side
+ * This is a simulated function for demo purposes
+ */
+export async function getAllUsers() {
+  try {
+    // In a real implementation, this would call an admin API endpoint
+    // or a Firebase Function that has admin privileges
+    // For demo purposes, we'll return mock data
+    const mockUsers = [
+      {
+        uid: 'user1',
+        email: 'admin@example.com',
+        displayName: 'Admin User',
+        role: 'admin',
+        createdAt: new Date('2023-01-01').toISOString(),
+        isActive: true
+      },
+      {
+        uid: 'user2',
+        email: 'employee1@example.com',
+        displayName: 'John Employee',
+        role: 'employee',
+        createdAt: new Date('2023-02-15').toISOString(),
+        isActive: true
+      },
+      {
+        uid: 'user3',
+        email: 'employee2@example.com',
+        displayName: 'Jane Employee',
+        role: 'employee',
+        createdAt: new Date('2023-03-10').toISOString(),
+        isActive: true
+      },
+      {
+        uid: 'user4',
+        email: 'client1@example.com',
+        displayName: 'Alice Client',
+        role: 'client',
+        createdAt: new Date('2023-04-05').toISOString(),
+        isActive: true
+      },
+      {
+        uid: 'user5',
+        email: 'client2@example.com',
+        displayName: 'Bob Client',
+        role: 'client',
+        createdAt: new Date('2023-05-20').toISOString(),
+        isActive: true
+      },
+      {
+        uid: 'user6',
+        email: 'consultant1@example.com',
+        displayName: 'Eva Consultant',
+        role: 'consultant',
+        createdAt: new Date('2023-06-15').toISOString(),
+        isActive: true
+      }
+    ];
+    
+    return mockUsers;
+  } catch (error) {
+    console.error('Error getting all users:', error);
+    throw new Error('Failed to get all users');
   }
 } 

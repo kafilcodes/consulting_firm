@@ -39,6 +39,9 @@ export function AuthInitializer({ children }: { children: React.ReactNode }) {
                 try {
                   // Handle user data serialization
                   const user = await serializeUser(firebaseUser);
+                  
+                  // The serializeUser function should now return fully serializable data
+                  // that's safe to dispatch to the Redux store
                   dispatch(setUser(user));
                   
                   // Let the UI know authentication is complete

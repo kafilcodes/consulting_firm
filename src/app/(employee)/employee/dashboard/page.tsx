@@ -15,7 +15,6 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import {
   LayoutDashboard,
-  Users,
   ClipboardList,
   Clock,
   CheckCircle,
@@ -23,10 +22,7 @@ import {
   AlertCircle,
   Eye,
   ChevronRight,
-  Briefcase,
-  MessageSquare,
-  BarChart4,
-  Calendar
+  Briefcase
 } from 'lucide-react';
 
 export default function EmployeeDashboardPage() {
@@ -37,7 +33,6 @@ export default function EmployeeDashboardPage() {
     pendingOrders: 0,
     completedOrders: 0,
     cancelledOrders: 0,
-    totalClients: 0,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [employeeProfile, setEmployeeProfile] = useState<any>(null);
@@ -61,14 +56,10 @@ export default function EmployeeDashboardPage() {
         const completedOrders = orders.filter(o => o.status === 'completed').length;
         const cancelledOrders = orders.filter(o => o.status === 'cancelled').length;
         
-        // Get unique client IDs
-        const uniqueClientIds = new Set(orders.map(o => o.userId));
-        
         setStats({
           pendingOrders,
           completedOrders,
           cancelledOrders,
-          totalClients: uniqueClientIds.size,
         });
         
         // Fetch employee profile
@@ -88,8 +79,8 @@ export default function EmployeeDashboardPage() {
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="grid grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
+        <div className="grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => (
             <Card key={i}>
               <CardHeader className="pb-2">
                 <Skeleton className="h-4 w-1/2" />
@@ -151,10 +142,6 @@ export default function EmployeeDashboardPage() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => router.push('/employee/calendar')}>
-            <Calendar className="h-4 w-4 mr-2" />
-            My Schedule
-          </Button>
           <Button onClick={() => router.push('/employee/orders')}>
             <ClipboardList className="h-4 w-4 mr-2" />
             View All Orders
@@ -166,7 +153,7 @@ export default function EmployeeDashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4"
       >
         <Card>
           <CardHeader className="pb-2">
@@ -198,17 +185,6 @@ export default function EmployeeDashboardPage() {
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold">{stats.cancelledOrders}</div>
               <XCircle className="h-5 w-5 text-red-500" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">Total Clients</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="text-2xl font-bold">{stats.totalClients}</div>
-              <Users className="h-5 w-5 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -283,26 +259,11 @@ export default function EmployeeDashboardPage() {
             <CardDescription>Frequently used actions</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2" 
+            <div>
+              <Button variant="outline" className="h-auto py-4 w-full flex flex-col items-center justify-center gap-2" 
                 onClick={() => router.push('/employee/orders')}>
                 <ClipboardList className="h-6 w-6" />
                 <span>Manage Orders</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2"
-                onClick={() => router.push('/employee/clients')}>
-                <Users className="h-6 w-6" />
-                <span>View Clients</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2"
-                onClick={() => router.push('/employee/chat')}>
-                <MessageSquare className="h-6 w-6" />
-                <span>Client Messages</span>
-              </Button>
-              <Button variant="outline" className="h-auto py-4 flex flex-col items-center justify-center gap-2"
-                onClick={() => router.push('/employee/support')}>
-                <AlertCircle className="h-6 w-6" />
-                <span>Client Support</span>
               </Button>
             </div>
           </CardContent>

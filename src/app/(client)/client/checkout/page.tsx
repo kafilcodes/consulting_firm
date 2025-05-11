@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { getServiceById } from '@/lib/data/services-data';
+import { useAppSelector } from '@/store/hooks';
 
 // Animation variants
 const containerVariants = {
@@ -68,14 +69,37 @@ export default function CheckoutPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, isLoading: authLoading, isInitialized } = useAppSelector(state => state.auth);
   const [loading, setLoading] = useState(true);
   const [service, setService] = useState<any>(null);
   const [subtotal, setSubtotal] = useState(0);
   const [tax, setTax] = useState(0);
   const [total, setTotal] = useState(0);
 
+  // Check authentication
   useEffect(() => {
+    if (isInitialized && !authLoading && !user) {
+      // Only redirect if auth is fully initialized and user is not logged in
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to access checkout",
+        variant: "destructive"
+      });
+      
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/auth/signin?callbackUrl=${encodeURIComponent(currentPath)}`);
+    }
+  }, [user, authLoading, isInitialized, router, toast]);
+
+  useEffect(() => {
+    // Don't fetch service data until we know auth state
+    if (!isInitialized || authLoading) return;
+    
+    // Skip fetching if user is not authenticated (redirect will happen)
+    if (!user) return;
+    
     const fetchServiceData = async () => {
+      setLoading(true);
       const serviceId = searchParams.get('serviceId');
       if (!serviceId) {
         toast({
@@ -137,9 +161,10 @@ export default function CheckoutPage() {
     };
 
     fetchServiceData();
-  }, [searchParams, router, toast]);
+  }, [searchParams, router, toast, user, authLoading, isInitialized]);
 
-  if (loading) {
+  // Show loading while initializing auth or fetching data
+  if (authLoading || !isInitialized || loading) {
     return (
       <div className="container mx-auto px-4 py-16">
         <div className="flex flex-col items-center justify-center space-y-4">
@@ -148,6 +173,11 @@ export default function CheckoutPage() {
         </div>
       </div>
     );
+  }
+
+  // Don't render anything if not authenticated - redirect will happen
+  if (!user) {
+    return null;
   }
 
   if (!service) {

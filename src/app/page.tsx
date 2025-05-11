@@ -237,7 +237,7 @@ export default function Home() {
           const role = user.role?.toLowerCase() || '';
           
           if (role === 'admin') {
-            router.push('/admin/dashboard');
+            router.push('/admin');
           } else if (role === 'client') {
             router.push('/client/dashboard');
           } else if (role === 'consultant') {
@@ -245,7 +245,8 @@ export default function Home() {
           } else if (role === 'employee') {
             router.push('/employee/dashboard');
           } else {
-            // Default to client dashboard if role is not specified
+            // If no recognized role, log the issue and use client as default
+            console.warn(`Home: Unknown user role "${role}", defaulting to client dashboard`);
             router.push('/client/dashboard');
           }
         } catch (err) {

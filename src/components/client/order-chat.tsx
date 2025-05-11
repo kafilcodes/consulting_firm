@@ -120,11 +120,14 @@ export function OrderChat({ orderId, orderStatus, employeeName }: OrderChatProps
     try {
       setIsSending(true);
       
+      // Determine if the current user is an employee or client
+      const currentUserRole = employeeName ? 'employee' : 'client';
+      
       const messageData = {
         orderId,
         senderId: user.uid,
-        senderName: user.displayName || user.email?.split('@')[0] || 'User',
-        senderRole: 'client',
+        senderName: employeeName || user.displayName || user.email?.split('@')[0] || 'User',
+        senderRole: currentUserRole,
         message: messageInput.trim(),
         isRead: false
       };
@@ -169,8 +172,8 @@ export function OrderChat({ orderId, orderStatus, employeeName }: OrderChatProps
         });
       }
       
-      // Simulate typing response after a delay (30% chance)
-      if (Math.random() > 0.7) {
+      // Simulate typing response after a delay (30% chance) - but only for client messages
+      if (currentUserRole === 'client' && Math.random() > 0.7) {
         setTimeout(() => {
           setIsTyping(true);
           typingTimeoutRef.current = setTimeout(() => {

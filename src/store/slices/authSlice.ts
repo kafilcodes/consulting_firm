@@ -34,6 +34,57 @@ const initialState: AuthState = {
   isInitialized: false,
 };
 
+/**
+ * Utility function to ensure any Firebase Timestamp objects are
+ * converted to strings for Redux storage (prevents non-serializable value errors)
+ */
+const ensureSerializableData = (data: any): any => {
+  if (!data) return null;
+  
+  // Handle arrays
+  if (Array.isArray(data)) {
+    return data.map(item => ensureSerializableData(item));
+  }
+  
+  // If not an object or is null, return as is
+  if (typeof data !== 'object' || data === null) {
+    return data;
+  }
+  
+  // Handle Date objects
+  if (data instanceof Date) {
+    return data.toISOString();
+  }
+  
+  // Handle Firestore Timestamp with toDate method
+  if (data.toDate && typeof data.toDate === 'function') {
+    try {
+      return data.toDate().toISOString();
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  // Handle Firestore Timestamp-like object with seconds
+  if (data.seconds !== undefined) {
+    try {
+      return new Date(data.seconds * 1000).toISOString();
+    } catch (e) {
+      return null;
+    }
+  }
+  
+  // Recursively process object properties
+  const result: { [key: string]: any } = {};
+  for (const key in data) {
+    if (Object.prototype.hasOwnProperty.call(data, key)) {
+      result[key] = ensureSerializableData(data[key]);
+    }
+  }
+  
+  return result;
+};
+
 // Helper function to format Firebase timestamps
 const formatDate = (timestamp: any): string => {
   if (!timestamp) return '';
@@ -80,7 +131,7 @@ export const signInWithGoogle = createAsyncThunk(
       }
       
       console.log('Google sign-in successful, user:', user.uid);
-      return user;
+      return ensureSerializableData(user);
     } catch (error: any) {
       console.error('Google sign-in error:', error);
       // Provide specific error messages for different sign-in failures
@@ -109,10 +160,10 @@ export const signOut = createAsyncThunk(
       await firebaseSignOut(auth);
       await updateAuthCookies(null, null);
       
-      // Redirect to home page after successful logout, ensuring no callback URL is appended
+      // Redirect to auth/sign-in page after successful logout
       if (typeof window !== 'undefined') {
         // Use direct location.href assignment to prevent path issues
-        window.location.href = '/';
+        window.location.href = '/auth/sign-in';
       }
       
       return null;
@@ -192,7 +243,8 @@ const authSlice = createSlice({
   reducers: {
     // Set user
     setUser: (state, action: PayloadAction<User | null>) => {
-      state.user = action.payload;
+      // Ensure any Firestore Timestamp objects are serialized before storing in Redux
+      state.user = action.payload ? ensureSerializableData(action.payload) : null;
       state.isLoading = false;
       state.error = null;
     },
@@ -215,7 +267,8 @@ const authSlice = createSlice({
     // Update current user data (for use when profile is updated externally)
     updateCurrentUser: (state, action: PayloadAction<Partial<User>>) => {
       if (state.user) {
-        state.user = { ...state.user, ...action.payload };
+        // Ensure any Firestore Timestamp objects are serialized before storing in Redux
+        state.user = ensureSerializableData({ ...state.user, ...action.payload });
       }
     },
   },
@@ -227,6 +280,7 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(signInWithGoogle.fulfilled, (state, action) => {
+        // Action payload is already serialized in the thunk
         state.user = action.payload;
         state.isLoading = false;
         state.error = null;
@@ -261,9 +315,11 @@ const authSlice = createSlice({
         state.error = null;
       })
       .addCase(updateUserProfile.fulfilled, (state, action) => {
-        state.user = action.payload;
+        // Ensure any Firestore Timestamp objects are serialized before storing in Redux
+        state.user = ensureSerializableData(action.payload);
         state.isLoading = false;
         state.error = null;
+        toast.success('Profile updated successfully');
       })
       .addCase(updateUserProfile.rejected, (state, action) => {
         state.isLoading = false;

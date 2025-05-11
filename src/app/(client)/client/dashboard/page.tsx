@@ -115,13 +115,47 @@ export default function ClientDashboard() {
   }, [user, router]);
 
   // Format date for display
-  const formatDate = (dateString: string | Date) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-    }).format(date);
+  const formatDate = (dateString: any) => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      // Handle different date formats
+      let date;
+      
+      if (typeof dateString === 'string') {
+        date = new Date(dateString);
+      } else if (dateString instanceof Date) {
+        date = dateString;
+      } else if (typeof dateString === 'object' && dateString !== null) {
+        // Handle Firebase Timestamp
+        if (dateString.toDate && typeof dateString.toDate === 'function') {
+          date = dateString.toDate();
+        } else if (dateString.seconds !== undefined) {
+          date = new Date(dateString.seconds * 1000);
+        } else {
+          console.warn('Unrecognized date object format:', dateString);
+          return 'N/A';
+        }
+      } else {
+        console.warn('Invalid date format:', dateString);
+        return 'N/A';
+      }
+      
+      // Validate the date is actually valid
+      if (isNaN(date.getTime())) {
+        console.warn('Invalid date created:', date, 'from input:', dateString);
+        return 'N/A';
+      }
+      
+      return new Intl.DateTimeFormat('en-US', {
+        day: 'numeric',
+        month: 'short',
+        year: 'numeric',
+      }).format(date);
+    } catch (error) {
+      console.error('Error formatting date:', error, 'Input was:', dateString);
+      return 'N/A';
+    }
   };
 
   // Status badge styling

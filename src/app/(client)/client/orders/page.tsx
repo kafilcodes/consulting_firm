@@ -311,110 +311,110 @@ export default function OrdersPage() {
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
+            <Input
                 placeholder="Search by service name or order ID..."
                 className="pl-9 pr-4"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
             <div className="flex gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
                     <Filter className="h-4 w-4" />
                     Filter
                     <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
+                </Button>
+              </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className={!statusFilter ? "bg-accent" : ""}
                     onClick={() => setStatusFilter(null)}
                   >
                     All orders
-                  </DropdownMenuItem>
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={statusFilter === 'pending' ? "bg-accent" : ""}
                     onClick={() => setStatusFilter('pending')}
                   >
                     <Clock className="h-4 w-4 mr-2 text-yellow-500" />
-                    Pending
-                  </DropdownMenuItem>
+                  Pending
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={statusFilter === 'confirmed' ? "bg-accent" : ""}
                     onClick={() => setStatusFilter('confirmed')}
                   >
                     <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
-                    Confirmed
-                  </DropdownMenuItem>
+                  Confirmed
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={statusFilter === 'processing' ? "bg-accent" : ""}
                     onClick={() => setStatusFilter('processing')}
                   >
                     <RefreshCw className="h-4 w-4 mr-2 text-purple-500" />
-                    Processing
-                  </DropdownMenuItem>
+                  Processing
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={statusFilter === 'completed' ? "bg-accent" : ""}
                     onClick={() => setStatusFilter('completed')}
                   >
                     <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                    Completed
-                  </DropdownMenuItem>
+                  Completed
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={statusFilter === 'cancelled' ? "bg-accent" : ""}
                     onClick={() => setStatusFilter('cancelled')}
                   >
                     <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                    Cancelled
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+                  Cancelled
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
                   <Button variant="outline" className="gap-2">
                     <ArrowUpDown className="h-4 w-4" />
-                    Sort
+                  Sort
                     <ChevronDown className="h-3 w-3" />
-                  </Button>
-                </DropdownMenuTrigger>
+                </Button>
+              </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
-                  <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuSeparator />
                   <DropdownMenuItem
                     className={sortBy.field === 'createdAt' && sortBy.direction === 'desc' ? "bg-accent" : ""}
                     onClick={() => setSortBy({ field: 'createdAt', direction: 'desc' })}
                   >
                     Newest first
-                  </DropdownMenuItem>
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={sortBy.field === 'createdAt' && sortBy.direction === 'asc' ? "bg-accent" : ""}
                     onClick={() => setSortBy({ field: 'createdAt', direction: 'asc' })}
                   >
                     Oldest first
-                  </DropdownMenuItem>
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={sortBy.field === 'amount' && sortBy.direction === 'desc' ? "bg-accent" : ""}
                     onClick={() => setSortBy({ field: 'amount', direction: 'desc' })}
                   >
                     Amount (high to low)
-                  </DropdownMenuItem>
+                </DropdownMenuItem>
                   <DropdownMenuItem
                     className={sortBy.field === 'amount' && sortBy.direction === 'asc' ? "bg-accent" : ""}
                     onClick={() => setSortBy({ field: 'amount', direction: 'asc' })}
                   >
                     Amount (low to high)
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          
+        </div>
+        
           {/* Active filters */}
           {(statusFilter || searchTerm) && (
             <div className="flex items-center gap-2 text-sm">
@@ -437,10 +437,10 @@ export default function OrdersPage() {
                   />
                 </Badge>
               )}
-            </div>
+                        </div>
           )}
-        </div>
-
+                      </div>
+                      
         {/* Order statistics */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
           <Card className="bg-blue-50 border-blue-100">
@@ -460,12 +460,12 @@ export default function OrdersPage() {
               <div className="bg-green-500 p-2 rounded-full mr-3">
                 <CheckCircle className="h-5 w-5 text-white" />
               </div>
-              <div>
+                      <div>
                 <p className="text-xs text-green-700">Completed</p>
                 <p className="text-xl font-bold text-green-800">
                   {orders.filter(o => o.status === 'completed').length}
                 </p>
-              </div>
+                        </div>
             </CardContent>
           </Card>
           
@@ -473,13 +473,13 @@ export default function OrdersPage() {
             <CardContent className="flex items-center p-4">
               <div className="bg-yellow-500 p-2 rounded-full mr-3">
                 <Clock className="h-5 w-5 text-white" />
-              </div>
+        </div>
               <div>
                 <p className="text-xs text-yellow-700">In Progress</p>
                 <p className="text-xl font-bold text-yellow-800">
                   {orders.filter(o => ['pending', 'confirmed', 'processing'].includes(o.status)).length}
                 </p>
-              </div>
+      </div>
             </CardContent>
           </Card>
           
@@ -487,15 +487,15 @@ export default function OrdersPage() {
             <CardContent className="flex items-center p-4">
               <div className="bg-red-500 p-2 rounded-full mr-3">
                 <XCircle className="h-5 w-5 text-white" />
-              </div>
+                    </div>
               <div>
                 <p className="text-xs text-red-700">Cancelled</p>
                 <p className="text-xl font-bold text-red-800">
                   {orders.filter(o => o.status === 'cancelled').length}
                 </p>
-              </div>
+                  </div>
             </CardContent>
-          </Card>
+              </Card>
         </div>
 
         {/* Orders list */}
@@ -515,12 +515,12 @@ export default function OrdersPage() {
               <div className="max-w-md mx-auto">
                 <ShoppingBag className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                 <h3 className="text-xl font-semibold mb-2">No orders yet</h3>
-                <p className="text-muted-foreground mb-6">
+            <p className="text-muted-foreground mb-6">
                   You haven't placed any orders yet. Browse our services to get started.
-                </p>
-                <Button asChild>
-                  <Link href="/client/services">Browse Services</Link>
-                </Button>
+            </p>
+            <Button asChild>
+              <Link href="/client/services">Browse Services</Link>
+            </Button>
               </div>
             ) : (
               <div className="max-w-md mx-auto">

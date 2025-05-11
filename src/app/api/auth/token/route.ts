@@ -4,8 +4,38 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function POST(request: NextRequest) {
   console.log('API: Setting auth cookies');
   
-  // Get the token from the request body
-  const { token, role } = await request.json();
+  // Get the token from the request body with error handling
+  let token, role;
+  try {
+    // Check if request has a body first
+    const contentType = request.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return NextResponse.json(
+        { error: 'Invalid content type. Expected application/json' },
+        { status: 400 }
+      );
+    }
+
+    // Get body text and verify it's not empty
+    const bodyText = await request.text();
+    if (!bodyText || bodyText.trim() === '') {
+      return NextResponse.json(
+        { error: 'Empty request body' },
+        { status: 400 }
+      );
+    }
+
+    // Parse JSON
+    const body = JSON.parse(bodyText);
+    token = body.token;
+    role = body.role;
+  } catch (error) {
+    console.error('Error parsing request body:', error);
+    return NextResponse.json(
+      { error: 'Invalid JSON in request body' },
+      { status: 400 }
+    );
+  }
   
   // Check if token exists
   if (!token) {

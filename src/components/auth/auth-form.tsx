@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Icons } from '@/components/icons';
@@ -9,7 +9,7 @@ import { signInWithGoogle } from '@/store/slices/authSlice';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
-export function AuthForm() {
+function AuthFormContent() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -38,7 +38,7 @@ export function AuthForm() {
         // For homepage redirect to role-specific dashboard
         const role = user.role?.toLowerCase();
         if (role === 'admin') {
-          redirectPath = '/admin/dashboard';
+          redirectPath = '/admin';
         } else if (role === 'client') {
           redirectPath = '/client/dashboard';
         } else if (role === 'consultant' || role === 'employee') {
@@ -83,7 +83,7 @@ export function AuthForm() {
       
       // Redirect based on user role
       if (result.role?.toLowerCase() === 'admin') {
-        router.push('/admin/dashboard');
+        router.push('/admin');
       } else if (result.role?.toLowerCase() === 'client') {
         router.push('/client/dashboard');
       } else if (result.role?.toLowerCase() === 'consultant' || result.role?.toLowerCase() === 'employee') {
@@ -164,5 +164,21 @@ export function AuthForm() {
         </p>
       </div>
     </motion.div>
+  );
+}
+
+// Wrap the component with Suspense to fix the useSearchParams error
+export function AuthForm() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center py-8">
+        <div className="relative h-12 w-12">
+          <div className="absolute inset-0 rounded-full border-t-2 border-r-0 border-b-0 border-l-2 border-blue-600 animate-spin"></div>
+          <div className="absolute inset-0 rounded-full border border-gray-200 opacity-25"></div>
+        </div>
+      </div>
+    }>
+      <AuthFormContent />
+    </Suspense>
   );
 } 

@@ -18,7 +18,7 @@ export default function UnauthorizedPage() {
     
     const role = user.role?.toLowerCase() || '';
     
-    if (role === 'admin') return '/admin/dashboard';
+    if (role === 'admin') return '/admin';
     if (role === 'employee') return '/employee/dashboard';
     if (role === 'consultant') return '/consultant/dashboard';
     if (role === 'client') return '/client/dashboard';

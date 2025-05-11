@@ -105,7 +105,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/dashboard') {
     // Redirect to appropriate dashboard based on role
     if (userRole === 'admin') {
-      return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+      return NextResponse.redirect(new URL('/admin', request.url));
     } else if (userRole === 'client') {
       return NextResponse.redirect(new URL('/client/dashboard', request.url));
     } else if (userRole === 'consultant') {
@@ -122,8 +122,6 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/employee/dashboard', request.url));
   } else if (pathname === '/consultant' && userRole === 'consultant') {
     return NextResponse.redirect(new URL('/consultant/dashboard', request.url));
-  } else if (pathname === '/admin' && userRole === 'admin') {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url));
   }
 
   // If we get here, the user is authenticated and has the correct role

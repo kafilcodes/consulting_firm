@@ -37,15 +37,30 @@ interface AuthContextType {
   updatePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   getIdToken: () => Promise<string | null>;
   clearError: () => void;
+  userRole: string | null;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
+
+/**
+ * Utility function to delete auth cookies
+ */
+const clearAuthCookies = () => {
+  try {
+    document.cookie = 'auth-token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Strict';
+    document.cookie = 'user-role=; Path=/; Expires=Thu, 01 Jan 1970 00:00:01 GMT; SameSite=Strict';
+  } catch (e) {
+    console.error("Failed to clear auth cookies:", e);
+  }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const router = useRouter();
+
+  const userRole = user?.role?.toLowerCase() || null;
 
   const clearError = useCallback(() => setError(null), []);
 
@@ -97,7 +112,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Redirect based on user role
       if (userData.role === 'admin') {
-        router.push('/admin/dashboard');
+        router.push('/admin');
       } else if (userData.role === 'employee') {
         router.push('/employee/dashboard');
       } else if (userData.role === 'consultant') {
@@ -141,7 +156,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       // Redirect based on user role
       if (userData.role === 'admin') {
-        router.push('/admin/dashboard');
+        router.push('/admin');
       } else if (userData.role === 'employee') {
         router.push('/employee/dashboard');
       } else if (userData.role === 'consultant') {
@@ -164,6 +179,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await firebaseSignOut();
       setUser(null);
+      clearAuthCookies();
       toast.success('Signed out successfully');
       router.push('/auth/sign-in');
     } catch (err) {
@@ -246,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     updatePassword: handleUpdatePassword,
     getIdToken: handleGetIdToken,
     clearError,
+    userRole,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -4,100 +4,49 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
-import { getRecentOrders, updateOrderStatus } from '@/lib/firebase/services';
+import {
+  getRecentOrders,
+  type Order as OrderType,
+} from '@/lib/firebase/services';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { formatCurrency } from '@/lib/utils';
 import {
-  ClipboardList,
   Search,
-  Filter,
-  ChevronDown,
-  ArrowUpDown,
+  FileText,
+  MessageCircle,
   CheckCircle,
   XCircle,
-  Clock,
-  MessageSquare,
-  Package,
-  FileText,
+  ClockIcon,
   AlertCircle,
-  SearchX,
   RefreshCw,
-  Eye,
-  Calendar,
-  Loader2,
+  Filter,
+  ArrowUpDown,
+  Calendar
 } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
-
-interface Order {
-  id: string;
-  userId: string;
-  userName: string;
-  serviceId: string;
-  serviceName: string;
-  status: 'pending' | 'confirmed' | 'processing' | 'completed' | 'cancelled';
-  amount: number;
-  currency: string;
-  createdAt: string;
-  updatedAt: string;
-  paymentStatus: 'pending' | 'completed' | 'failed';
-  timeline: any[];
-}
+} from '@/components/ui/radix-select';
 
 export default function EmployeeOrdersPage() {
   const router = useRouter();
   const { user } = useAuth();
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [filteredOrders, setFilteredOrders] = useState<Order[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<string | null>(null);
+  const [orders, setOrders] = useState<OrderType[]>([]);
+  const [filteredOrders, setFilteredOrders] = useState<OrderType[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [updateStatusDialogOpen, setUpdateStatusDialogOpen] = useState(false);
-  const [newStatus, setNewStatus] = useState<string>('');
-  const [statusUpdateMessage, setStatusUpdateMessage] = useState('');
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [sortBy, setSortBy] = useState<{ field: string; direction: 'asc' | 'desc' }>({
-    field: 'createdAt',
-    direction: 'desc'
-  });
+  const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [sortBy, setSortBy] = useState<'createdAt' | 'amount' | 'serviceName'>('createdAt');
 
   useEffect(() => {
     const fetchOrders = async () => {
@@ -105,8 +54,8 @@ export default function EmployeeOrdersPage() {
       
       setIsLoading(true);
       try {
-        // In a real implementation, you would fetch only orders assigned to this employee
-        // For now, we'll get all recent orders
+        // In a real implementation, we would filter by the current employee
+        // For now, we'll get all orders
         const allOrders = await getRecentOrders(50);
         setOrders(allOrders);
         setFilteredOrders(allOrders);
@@ -121,475 +70,277 @@ export default function EmployeeOrdersPage() {
     fetchOrders();
   }, [user]);
 
+  // Apply filters, sorting and search
   useEffect(() => {
-    if (!orders.length) return;
-    
     let result = [...orders];
     
-    // Apply status filter
-    if (statusFilter) {
-      result = result.filter(order => order.status === statusFilter);
+    // Filter by status tab
+    if (activeTab !== 'all') {
+      result = result.filter(order => {
+        return order.status === activeTab;
+      });
     }
     
-    // Apply search filter
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
       result = result.filter(order => 
-        order.serviceName.toLowerCase().includes(term) ||
-        order.userName.toLowerCase().includes(term) ||
-        order.id.toLowerCase().includes(term)
+        (order.serviceName && order.serviceName.toLowerCase().includes(query)) ||
+        (order.userName && order.userName.toLowerCase().includes(query)) ||
+        (order.userEmail && order.userEmail.toLowerCase().includes(query)) ||
+        (order.id && order.id.toLowerCase().includes(query)) ||
+        (order.amount && order.amount.toString().includes(query))
       );
     }
     
     // Apply sorting
     result.sort((a, b) => {
-      let valueA = a[sortBy.field as keyof Order];
-      let valueB = b[sortBy.field as keyof Order];
+      let valA, valB;
       
-      // Handle dates specially
-      if (sortBy.field === 'createdAt' || sortBy.field === 'updatedAt') {
-        valueA = new Date(valueA).getTime();
-        valueB = new Date(valueB).getTime();
+      if (sortBy === 'createdAt') {
+        valA = new Date(a.createdAt as string).getTime();
+        valB = new Date(b.createdAt as string).getTime();
+      } else if (sortBy === 'amount') {
+        valA = a.amount || 0;
+        valB = b.amount || 0;
+      } else {
+        valA = a.serviceName || '';
+        valB = b.serviceName || '';
       }
       
-      if (sortBy.direction === 'asc') {
-        return valueA > valueB ? 1 : -1;
+      if (sortOrder === 'asc') {
+        return valA > valB ? 1 : -1;
       } else {
-        return valueA < valueB ? 1 : -1;
+        return valA < valB ? 1 : -1;
       }
     });
     
     setFilteredOrders(result);
-  }, [orders, searchTerm, statusFilter, sortBy]);
+  }, [orders, activeTab, searchQuery, sortBy, sortOrder]);
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return <ClockIcon className="h-4 w-4 text-yellow-500" />;
+      case 'confirmed':
+        return <Calendar className="h-4 w-4 text-blue-500" />;
+      case 'processing':
+        return <RefreshCw className="h-4 w-4 text-purple-500" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-500" />;
+      case 'cancelled':
+        return <XCircle className="h-4 w-4 text-red-500" />;
+      default:
+        return null;
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 flex items-center gap-1"><Clock className="h-3 w-3" /> Pending</Badge>;
+        return (
+          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 flex items-center gap-1.5">
+            <ClockIcon className="h-3 w-3" /> Pending
+          </Badge>
+        );
       case 'confirmed':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Confirmed</Badge>;
+        return (
+          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1.5">
+            <Calendar className="h-3 w-3" /> Confirmed
+          </Badge>
+        );
       case 'processing':
-        return <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1"><RefreshCw className="h-3 w-3" /> Processing</Badge>;
+        return (
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 flex items-center gap-1.5">
+            <RefreshCw className="h-3 w-3" /> Processing
+          </Badge>
+        );
       case 'completed':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1"><CheckCircle className="h-3 w-3" /> Completed</Badge>;
+        return (
+          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 flex items-center gap-1.5">
+            <CheckCircle className="h-3 w-3" /> Completed
+          </Badge>
+        );
       case 'cancelled':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 flex items-center gap-1"><XCircle className="h-3 w-3" /> Cancelled</Badge>;
+        return (
+          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 flex items-center gap-1.5">
+            <XCircle className="h-3 w-3" /> Cancelled
+          </Badge>
+        );
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
   };
 
-  const getPaymentStatusBadge = (status: string) => {
-    switch (status) {
-      case 'completed':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Paid</Badge>;
-      case 'pending':
-        return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">Pending</Badge>;
-      case 'failed':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Failed</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
-    }
-  };
-
-  const handleUpdateStatus = async () => {
-    if (!selectedOrder || !newStatus || !statusUpdateMessage.trim()) {
-      toast.error('Please provide all required information');
-      return;
-    }
-    
-    setIsUpdating(true);
-    try {
-      await updateOrderStatus(
-        selectedOrder.id,
-        newStatus as any,
-        statusUpdateMessage,
-        user?.displayName || user?.email || 'Employee'
-      );
-      
-      // Update the order in the local state
-      const updatedOrders = orders.map(order => {
-        if (order.id === selectedOrder.id) {
-          return {
-            ...order,
-            status: newStatus as any,
-            updatedAt: new Date().toISOString(),
-            timeline: [
-              ...order.timeline,
-              {
-                status: newStatus,
-                message: statusUpdateMessage,
-                timestamp: new Date().toISOString(),
-                updatedBy: user?.displayName || user?.email || 'Employee'
-              }
-            ]
-          };
-        }
-        return order;
-      });
-      
-      setOrders(updatedOrders);
-      setUpdateStatusDialogOpen(false);
-      toast.success('Order status updated successfully');
-    } catch (error) {
-      console.error('Error updating order status:', error);
-      toast.error('Failed to update order status');
-    } finally {
-      setIsUpdating(false);
-    }
+  const toggleSortOrder = () => {
+    setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc');
   };
 
   if (isLoading) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-between mb-4">
-          <Skeleton className="h-10 w-1/4" />
-          <Skeleton className="h-10 w-1/4" />
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-64" />
+          <Skeleton className="h-10 w-32" />
         </div>
         
-        <div className="flex gap-4 mb-4">
-          <Skeleton className="h-10 flex-1" />
-          <Skeleton className="h-10 w-28" />
-          <Skeleton className="h-10 w-28" />
-        </div>
+        <Skeleton className="h-10 w-full" />
         
-        <Skeleton className="h-[500px] w-full" />
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Card key={i}>
+              <CardHeader className="pb-2">
+                <Skeleton className="h-6 w-1/3" />
+                <Skeleton className="h-4 w-1/4" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex justify-between">
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-4 w-40" />
+                  </div>
+                  <Skeleton className="h-8 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <ClipboardList className="h-6 w-6" />
-            Manage Orders
-          </h1>
+          <h1 className="text-2xl font-bold tracking-tight">Orders Management</h1>
           <p className="text-muted-foreground">
-            View and process client orders
+            View and manage all client orders
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => {
-            setOrders([]);
-            setFilteredOrders([]);
-            setIsLoading(true);
-            
-            // Refetch orders
-            getRecentOrders(50).then(allOrders => {
-              setOrders(allOrders);
-              setFilteredOrders(allOrders);
-              setIsLoading(false);
-              toast.success('Orders refreshed');
-            }).catch(error => {
-              console.error('Error refreshing orders:', error);
-              toast.error('Failed to refresh orders');
-              setIsLoading(false);
-            });
-          }}>
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Refresh
-          </Button>
-          <Button onClick={() => router.push('/employee/dashboard')}>
-            Back to Dashboard
-          </Button>
-        </div>
-      </div>
-      
-      {/* Filter and search controls */}
-      <motion.div 
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="mb-6 space-y-4"
-      >
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+        
+        <div className="flex items-center space-x-2">
+          <div className="relative w-full md:w-64">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search by service name, client or order ID..."
-              className="pl-9 pr-4"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              type="search"
+              placeholder="Search orders..."
+              className="pl-8"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
           
-          <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <Filter className="h-4 w-4" />
-                  Filter
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Filter by status</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className={!statusFilter ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter(null)}
+          <Select
+            value={sortBy}
+            onValueChange={(value: string) => setSortBy(value as 'createdAt' | 'amount' | 'serviceName')}
                 >
-                  All orders
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={statusFilter === 'pending' ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter('pending')}
-                >
-                  <Clock className="h-4 w-4 mr-2 text-yellow-500" />
-                  Pending
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={statusFilter === 'confirmed' ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter('confirmed')}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2 text-blue-500" />
-                  Confirmed
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={statusFilter === 'processing' ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter('processing')}
-                >
-                  <RefreshCw className="h-4 w-4 mr-2 text-purple-500" />
-                  Processing
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={statusFilter === 'completed' ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter('completed')}
-                >
-                  <CheckCircle className="h-4 w-4 mr-2 text-green-500" />
-                  Completed
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={statusFilter === 'cancelled' ? "bg-accent" : ""}
-                  onClick={() => setStatusFilter('cancelled')}
-                >
-                  <XCircle className="h-4 w-4 mr-2 text-red-500" />
-                  Cancelled
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="gap-2">
-                  <ArrowUpDown className="h-4 w-4" />
-                  Sort
-                  <ChevronDown className="h-3 w-3" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  className={sortBy.field === 'createdAt' && sortBy.direction === 'desc' ? "bg-accent" : ""}
-                  onClick={() => setSortBy({ field: 'createdAt', direction: 'desc' })}
-                >
-                  Newest first
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={sortBy.field === 'createdAt' && sortBy.direction === 'asc' ? "bg-accent" : ""}
-                  onClick={() => setSortBy({ field: 'createdAt', direction: 'asc' })}
-                >
-                  Oldest first
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={sortBy.field === 'amount' && sortBy.direction === 'desc' ? "bg-accent" : ""}
-                  onClick={() => setSortBy({ field: 'amount', direction: 'desc' })}
-                >
-                  Amount (high to low)
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  className={sortBy.field === 'amount' && sortBy.direction === 'asc' ? "bg-accent" : ""}
-                  onClick={() => setSortBy({ field: 'amount', direction: 'asc' })}
-                >
-                  Amount (low to high)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </div>
-        
-        {/* Active filters */}
-        {(statusFilter || searchTerm) && (
-          <div className="flex items-center gap-2 text-sm">
-            <span className="text-muted-foreground">Active filters:</span>
-            {statusFilter && (
-              <Badge variant="secondary" className="flex items-center gap-1 capitalize">
-                Status: {statusFilter}
-                <XCircle 
-                  className="h-3 w-3 ml-1 cursor-pointer" 
-                  onClick={() => setStatusFilter(null)}
-                />
-              </Badge>
-            )}
-            {searchTerm && (
-              <Badge variant="secondary" className="flex items-center gap-1">
-                Search: {searchTerm}
-                <XCircle 
-                  className="h-3 w-3 ml-1 cursor-pointer" 
-                  onClick={() => setSearchTerm('')}
-                />
-              </Badge>
-            )}
-          </div>
-        )}
-      </motion.div>
-      
-      {/* Orders table */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-      >
-        {filteredOrders.length > 0 ? (
-          <Card>
-            <CardContent className="p-0">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Service</TableHead>
-                    <TableHead>Client</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Payment</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredOrders.map((order) => (
-                    <TableRow key={order.id}>
-                      <TableCell className="font-medium">{order.serviceName}</TableCell>
-                      <TableCell>{order.userName}</TableCell>
-                      <TableCell>{new Date(order.createdAt).toLocaleDateString()}</TableCell>
-                      <TableCell>{formatCurrency(order.amount, order.currency)}</TableCell>
-                      <TableCell>{getPaymentStatusBadge(order.paymentStatus)}</TableCell>
-                      <TableCell>{getStatusBadge(order.status)}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+            <SelectTrigger className="w-[130px]">
+              <span className="flex items-center gap-1">
+                <Filter className="h-3.5 w-3.5" />
+                <span>Sort by</span>
+              </span>
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="createdAt">Date</SelectItem>
+              <SelectItem value="amount">Amount</SelectItem>
+              <SelectItem value="serviceName">Service</SelectItem>
+            </SelectContent>
+          </Select>
+          
                           <Button
                             variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              setSelectedOrder(order);
-                              setNewStatus(order.status);
-                              setUpdateStatusDialogOpen(true);
-                            }}
+            size="icon"
+            onClick={toggleSortOrder}
+            title={sortOrder === 'asc' ? 'Ascending' : 'Descending'}
                           >
-                            Update Status
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => router.push(`/employee/orders/${order.id}`)}
-                          >
-                            <Eye className="h-4 w-4" />
+            <ArrowUpDown className={`h-4 w-4 ${sortOrder === 'desc' ? 'rotate-180 transform' : ''}`} />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        ) : (
-          <Card className="border-dashed">
-            <CardContent className="pt-6 text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <SearchX className="h-6 w-6 text-muted-foreground" />
               </div>
-              <h3 className="mb-2 text-lg font-semibold">No orders found</h3>
-              <p className="mb-6 text-sm text-muted-foreground">
-                {statusFilter || searchTerm ? 
-                  'No orders match your current filters. Try adjusting your search criteria.' : 
-                  'There are no orders to display yet.'}
-              </p>
-              {(statusFilter || searchTerm) && (
-                <Button 
-                  variant="outline" 
-                  onClick={() => {
-                    setSearchTerm('');
-                    setStatusFilter(null);
-                  }}
-                >
-                  Reset Filters
-                </Button>
-              )}
-            </CardContent>
-          </Card>
-        )}
-      </motion.div>
       
-      {/* Update status dialog */}
-      <Dialog open={updateStatusDialogOpen} onOpenChange={setUpdateStatusDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Update Order Status</DialogTitle>
-            <DialogDescription>
-              Update the status of this order and provide a message for the client.
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Order Details</h3>
-              <p className="text-sm text-muted-foreground">
-                <span className="font-medium">{selectedOrder?.serviceName}</span> - {selectedOrder?.userName}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Current Status: {selectedOrder?.status}
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid grid-cols-6 w-full">
+          <TabsTrigger value="all">All Orders</TabsTrigger>
+          <TabsTrigger value="pending">Pending</TabsTrigger>
+          <TabsTrigger value="confirmed">Confirmed</TabsTrigger>
+          <TabsTrigger value="processing">Processing</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="cancelled">Cancelled</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value={activeTab} className="mt-6">
+          {filteredOrders.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <AlertCircle className="h-10 w-10 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium">No orders found</h3>
+              <p className="text-muted-foreground mt-2">
+                {searchQuery ? 'No orders match your search criteria.' : 'There are no orders in this category at the moment.'}
               </p>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">New Status</label>
-              <Select 
-                value={newStatus} 
-                onValueChange={setNewStatus}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a new status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="confirmed">Confirmed</SelectItem>
-                  <SelectItem value="processing">Processing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
+          ) : (
+            <div className="space-y-4">
+              {filteredOrders.map((order) => (
+                <Card 
+                  key={order.id} 
+                  className="overflow-hidden cursor-pointer transition-all hover:shadow-md"
+                  onClick={() => router.push(`/employee/orders/${order.id}`)}
+                >
+                  <CardHeader className="pb-2">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle className="text-lg flex items-center gap-2">
+                          {getStatusIcon(order.status)}
+                          {order.serviceName}
+                        </CardTitle>
+                        <CardDescription>Order #{order.id?.substring(0, 8)}</CardDescription>
+                      </div>
+                      {getStatusBadge(order.status)}
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 gap-6">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Client</p>
+                        <p>{order.userName}</p>
+                        <p className="text-sm text-muted-foreground">{order.userEmail}</p>
             </div>
-            
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Status Update Message</label>
-              <Textarea 
-                placeholder="Provide details about this status update..."
-                value={statusUpdateMessage}
-                onChange={(e) => setStatusUpdateMessage(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                This message will be visible to the client
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground mb-1">Details</p>
+                        <p className="font-medium">{formatCurrency(order.amount, order.currency)}</p>
+                        <p className="text-sm text-muted-foreground">
+                          Created: {new Date(order.createdAt as string).toLocaleDateString()}
               </p>
             </div>
           </div>
-          
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUpdateStatusDialogOpen(false)}>
-              Cancel
-            </Button>
+                  </CardContent>
+                  <CardFooter className="bg-muted/50 pt-2">
+                    <div className="flex justify-between items-center w-full">
+                      <p className="text-sm text-muted-foreground">
+                        Payment: <span className={order.paymentStatus === 'completed' ? 'text-green-600' : 'text-yellow-600'}>
+                          {order.paymentStatus === 'completed' ? 'Paid' : 'Pending'}
+                        </span>
+                      </p>
             <Button
-              onClick={handleUpdateStatus}
-              disabled={isUpdating || !newStatus || !statusUpdateMessage.trim()}
+                        variant="ghost"
+                        size="sm"
+                        className="gap-1"
+                        onClick={(e) => {
+                          e.stopPropagation(); // Prevent card click from firing
+                          router.push(`/employee/orders/${order.id}`);
+                        }}
             >
-              {isUpdating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Update Status
+                        <FileText className="h-4 w-4" />
+                        View Details
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+                    </div>
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 } 

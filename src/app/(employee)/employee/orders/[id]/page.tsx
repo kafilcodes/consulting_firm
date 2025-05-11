@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/auth-context';
-import { getOrderById, getUserById, updateOrderStatus } from '@/lib/firebase/services';
+import { getOrder, getUser, updateOrderStatus } from '@/lib/firebase/services';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,6 +28,7 @@ import {
   Download,
   Loader2,
   ReceiptText,
+  ClipboardList
 } from 'lucide-react';
 import {
   Dialog,
@@ -43,7 +44,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
+} from '@/components/ui/radix-select';
 import { Textarea } from '@/components/ui/textarea';
 
 interface Order {
@@ -96,7 +97,7 @@ export default function OrderDetailsPage() {
       
       setIsLoading(true);
       try {
-        const orderData = await getOrderById(orderId);
+        const orderData = await getOrder(orderId);
         if (!orderData) {
           toast.error('Order not found');
           router.push('/employee/orders');
@@ -108,7 +109,7 @@ export default function OrderDetailsPage() {
         
         // Fetch client data
         if (orderData.userId) {
-          const clientData = await getUserById(orderData.userId);
+          const clientData = await getUser(orderData.userId);
           setClient(clientData);
         }
       } catch (error) {
@@ -197,6 +198,11 @@ export default function OrderDetailsPage() {
     }
   };
 
+  // Handle tab click manually instead of relying on the Tabs component
+  const handleTabClick = (tabValue: string) => {
+    setActiveTab(tabValue);
+  };
+
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -254,7 +260,7 @@ export default function OrderDetailsPage() {
         <div className="flex items-center gap-2">
           <Button 
             variant="outline" 
-            onClick={() => setActiveTab('messages')}
+            onClick={() => handleTabClick('messages')}
             className="gap-1"
           >
             <MessageSquare className="h-4 w-4" />
@@ -297,21 +303,29 @@ export default function OrderDetailsPage() {
       </Card>
       
       {/* Tabs */}
-      <Tabs defaultValue="overview" value={activeTab} onValueChange={setActiveTab} className="mt-8">
-        <TabsList className="grid w-full grid-cols-4 mb-6">
-          <TabsTrigger value="overview" className="flex items-center gap-1">
+      <Tabs value={activeTab} className="mt-8">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger 
+            value="overview" 
+            onClick={() => handleTabClick('overview')}
+            className={`flex items-center gap-1 ${activeTab === 'overview' ? 'data-[state=active]' : ''}`}
+          >
             <InfoIcon className="h-4 w-4" />
             <span className="md:block hidden">Overview</span>
           </TabsTrigger>
-          <TabsTrigger value="client" className="flex items-center gap-1">
+          <TabsTrigger 
+            value="client" 
+            onClick={() => handleTabClick('client')}
+            className={`flex items-center gap-1 ${activeTab === 'client' ? 'data-[state=active]' : ''}`}
+          >
             <User className="h-4 w-4" />
             <span className="md:block hidden">Client</span>
           </TabsTrigger>
-          <TabsTrigger value="timeline" className="flex items-center gap-1">
-            <Calendar className="h-4 w-4" />
-            <span className="md:block hidden">Timeline</span>
-          </TabsTrigger>
-          <TabsTrigger value="messages" className="flex items-center gap-1">
+          <TabsTrigger 
+            value="messages" 
+            onClick={() => handleTabClick('messages')}
+            className={`flex items-center gap-1 ${activeTab === 'messages' ? 'data-[state=active]' : ''}`}
+          >
             <MessageSquare className="h-4 w-4" />
             <span className="md:block hidden">Messages</span>
           </TabsTrigger>
@@ -441,14 +455,9 @@ export default function OrderDetailsPage() {
                 <Separator />
                 
                 <div className="flex justify-center pt-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={() => router.push(`/employee/clients/${client.uid}`)}
-                    className="gap-2"
-                  >
-                    <User className="h-4 w-4" />
-                    View Full Client Profile
-                  </Button>
+                  <p className="text-sm text-muted-foreground">
+                    Client contact details can be used to reach out directly if needed.
+                  </p>
                 </div>
               </CardContent>
             </Card>
@@ -463,68 +472,24 @@ export default function OrderDetailsPage() {
           )}
         </TabsContent>
         
-        <TabsContent value="timeline" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Order Timeline
-              </CardTitle>
-              <CardDescription>
-                Complete history of this order
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {order.timeline && order.timeline.length > 0 ? (
-                <ol className="relative border-l border-muted ml-4 space-y-8">
-                  {order.timeline.map((event, index) => (
-                    <li key={index} className="mb-10 ml-6">
-                      <span className="absolute flex items-center justify-center w-6 h-6 rounded-full -left-3 ring-8 ring-background" style={{ backgroundColor: getStatusColor(event.status) }}>
-                        {getStatusIcon(event.status)}
-                      </span>
-                      <div className="ml-2">
-                        <h3 className="flex items-center mb-1 text-base font-semibold capitalize">
-                          {event.status}
-                          {index === order.timeline.length - 1 && (
-                            <span className="bg-blue-100 text-blue-800 text-xs font-medium mr-2 px-2.5 py-0.5 rounded ml-3">
-                              Latest
-                            </span>
-                          )}
-                        </h3>
-                        <time className="block mb-2 text-xs font-normal leading-none text-muted-foreground">
-                          {formatDate(event.timestamp, true)} by {event.updatedBy}
-                        </time>
-                        <p className="mb-4 text-sm text-muted-foreground">
-                          {event.message}
-                        </p>
-                      </div>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <div className="text-center py-8">
-                  <Calendar className="h-12 w-12 mx-auto text-muted-foreground" />
-                  <h3 className="mt-4 text-lg font-semibold">No Timeline Events</h3>
-                  <p className="text-muted-foreground mt-2">This order doesn't have any recorded status updates.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
         <TabsContent value="messages" className="space-y-6">
           <Card className="h-[600px] overflow-hidden flex flex-col">
             <CardHeader className="px-6 py-4 border-b">
               <CardTitle className="text-lg flex items-center gap-2">
                 <MessageSquare className="h-5 w-5" />
-                Client Messages
+                Client Communication
               </CardTitle>
               <CardDescription>
-                Communicate with the client about this order
+                Message the client about this order. All communications are stored with the order.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0 flex-1 overflow-hidden">
-              <OrderChat orderId={order.id} style={{ height: '100%' }} />
+              <OrderChat 
+                orderId={order.id} 
+                orderStatus={order.status}
+                employeeName={user?.displayName || 'Employee'} 
+                style={{ height: '100%' }} 
+              />
             </CardContent>
           </Card>
         </TabsContent>
@@ -555,9 +520,9 @@ export default function OrderDetailsPage() {
               <label className="text-sm font-medium">New Status</label>
               <Select 
                 value={newStatus} 
-                onValueChange={setNewStatus}
+                onValueChange={(value) => setNewStatus(value)}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select a new status" />
                 </SelectTrigger>
                 <SelectContent>
